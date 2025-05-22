@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>
+            Breakout-Pong Duel – fewer bigger bricks, faster ball, brick-wipe
+            win
+        </title>
+        <style>
+            html,
+            body {
+                margin: 0;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #111;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #fff;
+            }
+            canvas {
+                background: #202020;
+                box-shadow: 0 0 20px #000;
+                outline: 2px solid #444;
+            }
+            #overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 64px;
+                background: rgba(0, 0, 0, 0.6);
+                visibility: hidden;
+            }
+            .small {
+                font-size: 24px;
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="game" width="1280" height="720"></canvas>
+        <div id="overlay"><div id="msg"></div></div>
+
+        <script>
+            /* ===== CONSTANTS ======================================================== */
+            const C = document.getElementById("game");
+            const ctx = C.getContext("2d");
+            const W = C.width,
+                H = C.height;
+
+            const GRID_COLS = 4,
+                GRID_ROWS = 5; // fewer bricks
+            const BRICK_W = 40,
+                BRICK_H = H / GRID_ROWS; // bricks span full height
+            const GRID_W = GRID_COLS * BRICK_W;
+
+            const EDGE = 10,
+                GAP = 10;
+
+            const PAD_W = 10,
+                PAD_H = 120,
+                PAD_SPD = 480;
+            const BALL_R = 8,
+                BALL_SPD = 800; // faster ball
+            const ENGLISH_MAX = (15 * Math.PI) / 180;
+
+            const COUNTDOWN = 3,
+                RESTART = 5;
+
+            /* ===== UTILS ============================================================ */
+            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const now = () => performance.now() / 1000;
+            const randCol = () => `hsl(${(Math.random() * 360) | 0},70%,55%)`;
+
+            /* ===== CLASSES ========================================================== */
+            class Paddle {
+                constructor(x) {
+                    this.x = x;
+                    this.y = (H - PAD_H) / 2;
+                }
+                update(dir, dt) {
+                    this.y = clamp(this.y + dir * PAD_SPD * dt, 0, H - PAD_H);
+                }
+                draw() {
+                    ctx.fillStyle = "#fff";
+                    ctx.fillRect(this.x, this.y, PAD_W, PAD_H);
+                }
+                get rect() {
+                    return { x: this.x, y: this.y, w: PAD_W, h: PAD_H };
+                }
+            }
+
+            class BrickGrid {
+                constructor(side) {
+                    this.cells = [];
+                    this.alive = [];
+                    const ox = side === "left" ? EDGE : W - EDGE - GRID_W;
+                    const oy = 0;
+                    for (let r = 0; r < GRID_ROWS; r++) {
+                        for (let c = 0; c < GRID_COLS; c++) {
+                            this.cells.push({
+                                x: ox + c * BRICK_W,
+                                y: oy + r * BRICK_H,
+                                w: BRICK_W,
+                                h: BRICK_H,
+                                col: randCol(),
+                            });
+                            this.alive.push(true);
+                        }
+                    }
+                }
+                hit(i) {
+                    this.alive[i] = false;
+                }
+                collision(ball) {
+                    for (let i = 0; i < this.cells.length; i++) {
+                        if (!this.alive[i]) continue;
+                        const b = this.cells[i];
+                        if (circleAABB(ball, b)) {
+                            this.hit(i);
+                            reflectX(ball, b);
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                empty() {
+                    return this.alive.every((a) => !a);
+                }
+                draw() {
+                    for (let i = 0; i < this.cells.length; i++) {
+                        if (this.alive[i]) {
+                            const b = this.cells[i];
+                            ctx.fillStyle = b.col;
+                            ctx.fillRect(b.x, b.y, b.w, b.h);
+                        }
+                    }
+                }
+            }
+
+            class Ball {
+                constructor() {
+                    this.reset();
+                }
+                reset() {
+                    this.x = W / 2;
+                    this.y = H / 2;
+                    this.dx = this.dy = 0;
+                    this.spawn = now();
+                }
+                launch() {
+                    const ang =
+                        ((Math.random() < 0.5 ? 45 : 135) * Math.PI) / 180;
+                    const sign = Math.random() < 0.5 ? 1 : -1;
+                    this.dx = BALL_SPD * Math.cos(ang);
+                    this.dy = BALL_SPD * Math.sin(ang) * sign;
+                }
+                update(dt) {
+                    if (!this.dx && now() - this.spawn > COUNTDOWN)
+                        this.launch();
+                    this.x += this.dx * dt;
+                    this.y += this.dy * dt;
+
+                    if (this.y - BALL_R < 0) {
+                        this.y = BALL_R;
+                        this.dy *= -1;
+                    }
+                    if (this.y + BALL_R > H) {
+                        this.y = H - BALL_R;
+                        this.dy *= -1;
+                    }
+                    if (this.x - BALL_R < 0) {
+                        this.x = BALL_R;
+                        this.dx *= -1;
+                    } // bounce off arena edges now
+                    if (this.x + BALL_R > W) {
+                        this.x = W - BALL_R;
+                        this.dx *= -1;
+                    }
+                }
+                draw() {
+                    ctx.fillStyle = "#ff0";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, BALL_R, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+
+            /* ===== COLLISIONS ======================================================= */
+            function circleAABB(ball, r) {
+                const cx = clamp(ball.x, r.x, r.x + r.w);
+                const cy = clamp(ball.y, r.y, r.y + r.h);
+                const dx = ball.x - cx,
+                    dy = ball.y - cy;
+                return dx * dx + dy * dy < BALL_R * BALL_R;
+            }
+            function reflectX(ball, _) {
+                ball.dx *= -1;
+            }
+
+            /* ===== STATE / SETUP ==================================================== */
+            let state;
+            function init() {
+                const leftBr = new BrickGrid("left");
+                const rightBr = new BrickGrid("right");
+                const leftPad = new Paddle(EDGE + GRID_W + GAP);
+                const rightPad = new Paddle(W - EDGE - GRID_W - GAP - PAD_W);
+                state = {
+                    leftPad,
+                    rightPad,
+                    leftBr,
+                    rightBr,
+                    ball: new Ball(),
+                    run: true,
+                    winner: null,
+                    last: now(),
+                };
+            }
+            init();
+
+            /* ===== INPUT ============================================================ */
+            const keys = {};
+            addEventListener("keydown", (e) => {
+                if (e.code === "Escape") {
+                    toggle();
+                    return;
+                }
+                keys[e.code] = true;
+            });
+            addEventListener("keyup", (e) => (keys[e.code] = false));
+
+            /* ===== UI =============================================================== */
+            const ov = document.getElementById("overlay"),
+                msg = document.getElementById("msg");
+            function show(t) {
+                msg.innerHTML = t;
+                ov.style.visibility = "visible";
+            }
+            function hide() {
+                ov.style.visibility = "hidden";
+            }
+            function toggle() {
+                if (state.winner) return;
+                state.run = !state.run;
+                state.run ? hide() : show("PAUSED");
+            }
+
+            /* ===== GAME LOOP ======================================================== */
+            function loop() {
+                requestAnimationFrame(loop);
+                const t = now(),
+                    dt = t - state.last;
+                state.last = t;
+                if (!state.run) return;
+                update(dt);
+                draw();
+            }
+            function update(dt) {
+                const { leftPad, rightPad, ball, leftBr, rightBr } = state;
+                leftPad.update(
+                    (keys["KeyW"] ? -1 : 0) + (keys["KeyS"] ? 1 : 0),
+                    dt
+                );
+                rightPad.update(
+                    (keys["ArrowUp"] ? -1 : 0) + (keys["ArrowDown"] ? 1 : 0),
+                    dt
+                );
+                ball.update(dt);
+
+                [leftPad, rightPad].forEach((p) => {
+                    if (circleAABB(ball, p.rect)) {
+                        const rel = (ball.y - (p.y + PAD_H / 2)) / (PAD_H / 2);
+                        const ang = rel * ENGLISH_MAX;
+                        const speed = Math.hypot(ball.dx, ball.dy);
+                        ball.dx =
+                            (p === leftPad ? 1 : -1) * speed * Math.cos(ang);
+                        ball.dy = speed * Math.sin(ang);
+                        ball.x =
+                            p === leftPad
+                                ? p.x + p.rect.w + BALL_R
+                                : p.x - BALL_R;
+                    }
+                });
+
+                leftBr.collision(ball);
+                rightBr.collision(ball);
+
+                if (leftBr.empty()) round("Right");
+                if (rightBr.empty()) round("Left");
+            }
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+                state.leftBr.draw();
+                state.rightBr.draw();
+                state.leftPad.draw();
+                state.rightPad.draw();
+                state.ball.draw();
+
+                ctx.strokeStyle = "#444";
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(W / 2, 0);
+                ctx.lineTo(W / 2, H);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                if (!state.ball.dx) {
+                    const s = Math.ceil(COUNTDOWN - (now() - state.ball.spawn));
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "80px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(s > 0 ? s : "GO!", W / 2, H / 2);
+                }
+            }
+            function round(w) {
+                state.winner = w;
+                state.run = false;
+                show(
+                    `${w} Player Wins!<br><span class="small">next round in ${RESTART}s</span>`
+                );
+                setTimeout(() => {
+                    init();
+                    hide();
+                }, RESTART * 1000);
+            }
+
+            /* ===== START ============================================================ */
+            loop();
+        </script>
+    </body>
+</html>
