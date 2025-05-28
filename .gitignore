@@ -1,0 +1,28 @@
+# ─── CLION IDE ────────────────────────────────────────────────────────────────
+.idea/
+# User-specific files
+*.iml
+# CMake build folders that CLion creates
+cmake-build-*/
+
+# ─── CMAKE / BUILD ARTIFACTS ─────────────────────────────────────────────────
+# CMake-generated folders and files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+# compiled objects and executables
+*.o
+*.obj
+*.exe
+*.out
+
+# ─── MISC / OS ─────────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+# Editor swap/temp
+*~
+# Your temp.txt
+temp.txt
