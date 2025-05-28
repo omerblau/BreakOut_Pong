@@ -1,16 +1,19 @@
 cmake_minimum_required(VERSION 3.7)
-project(BAGEL)
+project(BrakeoutPong)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_DEBUG "-Sg")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_executable(
-        BAGEL
+        ${PROJECT_NAME}
         main.cpp
-        bagel.h
-        bagel_cfg.h
+        include/bagel.h
+        include/bagel_cfg.h
+        src/game.cpp
+        include/game.h
+        include/components.h
 )
 
 set(SDL_STATIC ON)

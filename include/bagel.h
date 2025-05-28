@@ -25,8 +25,8 @@ namespace bagel
 
 #if __has_include("bagel_cfg.h")
 	#define BAGEL_STORAGE(C,T) template <> struct Storage<C> { using type = T<C>; };
-	#include "bagel_cfg.h"
-	#undef BAGEL_STORAGE
+	#include "../bagel_cfg.h"
+#undef BAGEL_STORAGE
 #else
 	constexpr Bagel Params{};
 #endif
