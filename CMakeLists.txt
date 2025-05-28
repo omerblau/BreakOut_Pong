@@ -10,10 +10,7 @@ add_executable(
         BAGEL
         main.cpp
         bagel.h
-        tests.cpp
         bagel_cfg.h
-        element.cpp
-        element.h
 )
 
 set(SDL_STATIC ON)
