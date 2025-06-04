@@ -1,10 +1,10 @@
-#include "Element.h"
+
+#include "include/game.h"
 
 
-using namespace element;
 
 int main() {
-	Element p;
+	game::Game p;
 	p.run();
 	return 0;
 }

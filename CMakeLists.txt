@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.7)
 project(BrakeoutPong)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-Sg")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+
+
 
 add_executable(
         ${PROJECT_NAME}
@@ -14,6 +14,7 @@ add_executable(
         src/game.cpp
         include/game.h
         include/components.h
+        res/atlas_bricks_ball.h
 )
 
 set(SDL_STATIC ON)
