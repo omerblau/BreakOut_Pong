@@ -50,6 +50,65 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
+
+    void Game::createBrick(const SDL_FPoint& pos) const {
+        // physics body
+        b2BodyDef def = b2DefaultBodyDef();
+        def.type = b2_staticBody;
+        def.position = {pos.x / BOX_SCALE, pos.y / BOX_SCALE};
+
+        b2ShapeDef shapeDef = b2DefaultShapeDef();
+        shapeDef.density = 1;
+
+        b2Polygon box = b2MakeBox(
+            BRICK_TEX.w * BALL_TEX_SCALE / BOX_SCALE / 2,
+            BRICK_TEX.h * BALL_TEX_SCALE / BOX_SCALE / 2
+        );
+
+        b2BodyId body = b2CreateBody(boxWorld, &def);
+        b2CreatePolygonShape(body, &shapeDef, &box);
+
+        Entity brick = Entity::create();
+        brick.addAll(
+            Transform{pos, 0},
+            Drawable{BRICK_TEX, {BRICK_TEX.w * BALL_TEX_SCALE, BRICK_TEX.h * BALL_TEX_SCALE}},
+            Collider{body}
+        );
+    }
+
+    void Game::placeBricks() const {
+        const int cols = 2;
+        const int rows = 15;
+        const float spacing = 10.0f;
+
+        const float bw = BRICK_TEX.w * BALL_TEX_SCALE;
+        const float bh = BRICK_TEX.h * BALL_TEX_SCALE;
+
+        // left side
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                SDL_FPoint pos = {
+                    150 + c * (bw + spacing),
+                    100 + r * (bh + spacing)
+                };
+                createBrick(pos);
+            }
+        }
+
+        // right side
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                SDL_FPoint pos = {
+                    WIN_WIDTH - 150 - c * (bw + spacing),
+                    100 + r * (bh + spacing)
+                };
+                createBrick(pos);
+            }
+        }
+
+    }
+
+
     bool Game::prepareWindowAndTexture() {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
             cout << SDL_GetError() << endl;
@@ -180,6 +239,7 @@ namespace game {
         prepareBoxWorld();
         prepareWalls();
         createBall();
+        placeBricks();
         // createPad(PAD1_TEX, {50, WIN_HEIGHT / 2}, {SDL_SCANCODE_W, SDL_SCANCODE_S});
         // createPad(PAD2_TEX, {WIN_WIDTH - 50, WIN_HEIGHT / 2}, {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN});
     }

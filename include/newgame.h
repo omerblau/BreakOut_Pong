@@ -32,6 +32,10 @@ namespace game {
 
         void createBall() const;
 
+        void createBrick(const SDL_FPoint &pos) const;
+
+        void placeBricks() const;
+
         bool prepareWindowAndTexture();
         void prepareBoxWorld();
         void prepareWalls() const;
@@ -53,6 +57,8 @@ namespace game {
         static constexpr SDL_FRect PAD1_TEX = {pad.x, pad.y, pad.w, pad.h};
         static constexpr SDL_FRect PAD2_TEX = {pad.x, pad.y, pad.w, pad.h};
         static constexpr SDL_FRect DOTS_TEX = {296, 20, 24, 24};
+        static constexpr SDL_FRect BRICK_TEX = {brick_red_1.x, brick_red_1.y, brick_red_1.w, brick_red_1.h}; // atlas_bricks_ball.h
+
 
         SDL_Texture *tex{};
         SDL_Renderer *ren{};
