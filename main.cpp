@@ -1,19 +1,37 @@
-
-#include "include/game.h"
-
-
+#include "include/newgame.h"
+using namespace game;
 
 int main() {
-	game::Game p;
-	p.run();
+	Game p;
+	if (p.valid())
+		p.run();
 	return 0;
 }
 
 
-// #include "Game.h"
-
+////moshes pong
+// #include "include/Pong.h"
+// using namespace pong;
+//
 // int main() {
-// 	Game g;
-// 	g.run();
+// 	Pong p;
+// 	if (p.valid())
+// 		p.run();
+// 	return 0;
+// }
+
+
+
+
+
+
+//
+// #include "include/game.h"
+//
+//
+//
+// int main() {
+// 	game::Game p;
+// 	p.run();
 // 	return 0;
 // }

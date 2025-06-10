@@ -1,20 +1,20 @@
 cmake_minimum_required(VERSION 3.7)
-project(BrakeoutPong)
+project(BreakoutPong)
 
 set(CMAKE_CXX_STANDARD 17)
-
-
-
 
 add_executable(
         ${PROJECT_NAME}
         main.cpp
-        include/bagel.h
         include/bagel_cfg.h
-        src/game.cpp
-        include/game.h
+#        src/game.cpp
+#        src/Pong.cpp
+#        include/Pong.h
+#        include/game.h
         include/components.h
         res/atlas_bricks_ball.h
+        src/newgame.cpp
+        include/newgame.h
 )
 
 set(SDL_STATIC ON)

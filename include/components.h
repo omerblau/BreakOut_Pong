@@ -9,9 +9,6 @@ namespace game {
     using Collider  = struct { b2BodyId body;  };
     using Breakable = struct {};
     using Ball      = struct {};
-
-
-
 }
 
 
