@@ -77,8 +77,8 @@ namespace game {
     }
 
     void Game::placeBricks() const {
-        const int cols = 2;
-        const int rows = 15;
+        const int cols = 4;
+        const int rows = 17;
         const float spacing = 10.0f;
 
         const float bw = BRICK_TEX.w * BALL_TEX_SCALE;

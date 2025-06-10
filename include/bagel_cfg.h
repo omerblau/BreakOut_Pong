@@ -4,7 +4,7 @@
 constexpr Bagel Params {
     .DynamicResize      = true,
     .IdBagSize          = 16,
-    .InitialEntities    = 64,
+    .InitialEntities    = 150,
     .InitialPackedSize  = 32,
     .MaxComponents      = 32
 };
