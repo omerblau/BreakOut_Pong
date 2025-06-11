@@ -59,10 +59,10 @@ namespace game {
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.35f;
 
-        static constexpr SDL_FRect BALL_TEX  = {ball.x, ball.y, ball.w, ball.h};
-        static constexpr SDL_FRect PAD1_TEX  = {pad.x, pad.y, pad.w, pad.h};
-        static constexpr SDL_FRect PAD2_TEX  = {pad.x, pad.y, pad.w, pad.h};
-        static constexpr SDL_FRect BRICK_TEX = {brick_red_1.x, brick_red_1.y, brick_red_1.w, brick_red_1.h}; // atlas_bricks_ball.h
+        static constexpr SDL_FRect BALL_COORDS  = {ball.x, ball.y, ball.w, ball.h};
+        static constexpr SDL_FRect PAD1_COORDS  = {pad.x, pad.y, pad.w, pad.h};
+        static constexpr SDL_FRect PAD2_COORDS  = {pad.x, pad.y, pad.w, pad.h};
+        static constexpr SDL_FRect BRICK_COORDS = {brick_red_1.x, brick_red_1.y, brick_red_1.w, brick_red_1.h}; // atlas_bricks_ball.h
 
         SDL_Texture  *tex{};
         SDL_Renderer *ren{};

@@ -28,8 +28,8 @@ namespace game {
         ballShapeDef.enableSensorEvents = true;
         ballShapeDef.density = 1;
         ballShapeDef.material.friction = 0;
-        ballShapeDef.material.restitution = 1.0f;
-        b2Circle ballCircle = {0, 0, BALL_TEX.w * BALL_TEX_SCALE / BOX_SCALE / 2};
+        ballShapeDef.material.restitution = 0.0f;
+        b2Circle ballCircle = {0, 0, BALL_COORDS.w * BALL_TEX_SCALE / BOX_SCALE / 2};
 
         b2BodyId ballBody = b2CreateBody(boxWorld, &ballBodyDef);
         b2CreateCircleShape(ballBody, &ballShapeDef, &ballCircle);
@@ -43,7 +43,7 @@ namespace game {
         Entity ballEntity = Entity::create();
         ballEntity.addAll(
             Transform{{}, 0},
-            Drawable{{BALL_TEX}, {BALL_TEX.w * BALL_TEX_SCALE, BALL_TEX.h * BALL_TEX_SCALE}},
+            Drawable{{BALL_COORDS}, {BALL_COORDS.w * BALL_TEX_SCALE, BALL_COORDS.h * BALL_TEX_SCALE}},
             Collider{ballBody}
         );
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
@@ -77,13 +77,13 @@ namespace game {
     }
 
     void Game::createPads() const {
-        createPad(PAD1_TEX, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD1_COORDS, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
                       SDL_SCANCODE_W,
                       SDL_SCANCODE_S,
                       SDL_SCANCODE_D,
                       SDL_SCANCODE_A
                   });
-        createPad(PAD2_TEX, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD2_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
                       SDL_SCANCODE_UP,
                       SDL_SCANCODE_DOWN,
                       SDL_SCANCODE_LEFT,
@@ -101,8 +101,8 @@ namespace game {
         shapeDef.density = 1;
 
         b2Polygon box = b2MakeBox(
-            BRICK_TEX.w * BRICKS_TEX_SCALE / BOX_SCALE / 2,
-            BRICK_TEX.h * BRICKS_TEX_SCALE / BOX_SCALE / 2
+            BRICK_COORDS.w * BRICKS_TEX_SCALE / BOX_SCALE / 2,
+            BRICK_COORDS.h * BRICKS_TEX_SCALE / BOX_SCALE / 2
         );
 
         b2BodyId body = b2CreateBody(boxWorld, &def);
@@ -111,7 +111,7 @@ namespace game {
         Entity brick = Entity::create();
         brick.addAll(
             Transform{pos, 0},
-            Drawable{BRICK_TEX, {BRICK_TEX.w * BRICKS_TEX_SCALE, BRICK_TEX.h * BRICKS_TEX_SCALE}},
+            Drawable{BRICK_COORDS, {BRICK_COORDS.w * BRICKS_TEX_SCALE, BRICK_COORDS.h * BRICKS_TEX_SCALE}},
             Collider{body}
         );
     }
@@ -123,8 +123,8 @@ namespace game {
         constexpr int side_margin = 50;
         constexpr float spacing = 10.0f;
 
-        constexpr float bw = BRICK_TEX.w * BRICKS_TEX_SCALE;
-        constexpr float bh = BRICK_TEX.h * BRICKS_TEX_SCALE;
+        constexpr float bw = BRICK_COORDS.w * BRICKS_TEX_SCALE;
+        constexpr float bh = BRICK_COORDS.h * BRICKS_TEX_SCALE;
 
         // left side
         for (int r = 0; r < rows; ++r) {
