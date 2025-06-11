@@ -47,3 +47,4 @@ inline constexpr SpriteFrame brick_navy_3{"brick_navy_3.png", 443, 770, 137, 88}
 inline constexpr SpriteFrame brick_navy_4{"brick_navy_4.png", 627, 770, 143, 84};
 inline constexpr SpriteFrame brick_navy_5{"brick_navy_5.png", 818, 770, 134, 87};
 inline constexpr SpriteFrame ball{"ball.png", 457, 1136, 107, 103};
+inline constexpr SpriteFrame pad{"pad.png", 260, 1312, 505, 75};

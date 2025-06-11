@@ -1,19 +1,9 @@
-
-#include "include/game.h"
-
-
+#include "include/newgame.h"
+using namespace game;
 
 int main() {
-	game::Game p;
-	p.run();
+	Game p;
+	if (p.valid())
+		p.run();
 	return 0;
 }
-
-
-// #include "Game.h"
-
-// int main() {
-// 	Game g;
-// 	g.run();
-// 	return 0;
-// }
