@@ -2,7 +2,6 @@
 
 #include "../include/newgame.h"
 
-#include "../include/Pong.h"
 #include <iostream>
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
@@ -50,8 +49,49 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k) const {
+        b2BodyDef padBodyDef = b2DefaultBodyDef();
+        padBodyDef.type = b2_kinematicBody;
+        padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
+        const b2BodyId padBody = b2CreateBody(boxWorld, &padBodyDef);
 
-    void Game::createBrick(const SDL_FPoint& pos) const {
+        constexpr float angleRad = 90.0f / RAD_TO_DEG;
+        const b2Rot rot = {std::cos(angleRad), std::sin(angleRad)};
+        b2Body_SetTransform(padBody, padBodyDef.position, rot);
+
+        b2ShapeDef padShapeDef = b2DefaultShapeDef();
+        padShapeDef.density = 1;
+
+        const b2Polygon padBox = b2MakeBox(
+            r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
+            r.h * PAD_TEX_SCALE / BOX_SCALE / 2);
+        b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
+
+        Entity::create().addAll(
+            Transform{{}, 0},
+            Drawable{r, {r.w * PAD_TEX_SCALE, r.h * PAD_TEX_SCALE}},
+            Collider{padBody},
+            Intent{},
+            k
+        );
+    }
+
+    void Game::createPads() const {
+        createPad(PAD1_TEX, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+                      SDL_SCANCODE_W,
+                      SDL_SCANCODE_S,
+                      SDL_SCANCODE_D,
+                      SDL_SCANCODE_A
+                  });
+        createPad(PAD2_TEX, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+                      SDL_SCANCODE_UP,
+                      SDL_SCANCODE_DOWN,
+                      SDL_SCANCODE_LEFT,
+                      SDL_SCANCODE_RIGHT
+                  });
+    }
+
+    void Game::createBrick(const SDL_FPoint &pos) const {
         // physics body
         b2BodyDef def = b2DefaultBodyDef();
         def.type = b2_staticBody;
@@ -61,8 +101,8 @@ namespace game {
         shapeDef.density = 1;
 
         b2Polygon box = b2MakeBox(
-            BRICK_TEX.w * BALL_TEX_SCALE / BOX_SCALE / 2,
-            BRICK_TEX.h * BALL_TEX_SCALE / BOX_SCALE / 2
+            BRICK_TEX.w * BRICKS_TEX_SCALE / BOX_SCALE / 2,
+            BRICK_TEX.h * BRICKS_TEX_SCALE / BOX_SCALE / 2
         );
 
         b2BodyId body = b2CreateBody(boxWorld, &def);
@@ -71,25 +111,27 @@ namespace game {
         Entity brick = Entity::create();
         brick.addAll(
             Transform{pos, 0},
-            Drawable{BRICK_TEX, {BRICK_TEX.w * BALL_TEX_SCALE, BRICK_TEX.h * BALL_TEX_SCALE}},
+            Drawable{BRICK_TEX, {BRICK_TEX.w * BRICKS_TEX_SCALE, BRICK_TEX.h * BRICKS_TEX_SCALE}},
             Collider{body}
         );
     }
 
     void Game::placeBricks() const {
-        const int cols = 4;
-        const int rows = 17;
-        const float spacing = 10.0f;
+        constexpr int cols = 2;
+        constexpr int rows = 19;
+        constexpr int top_margin = 60;
+        constexpr int side_margin = 50;
+        constexpr float spacing = 10.0f;
 
-        const float bw = BRICK_TEX.w * BALL_TEX_SCALE;
-        const float bh = BRICK_TEX.h * BALL_TEX_SCALE;
+        constexpr float bw = BRICK_TEX.w * BRICKS_TEX_SCALE;
+        constexpr float bh = BRICK_TEX.h * BRICKS_TEX_SCALE;
 
         // left side
         for (int r = 0; r < rows; ++r) {
             for (int c = 0; c < cols; ++c) {
                 SDL_FPoint pos = {
-                    150 + c * (bw + spacing),
-                    100 + r * (bh + spacing)
+                    side_margin + static_cast<float>(c) * (bw + spacing),
+                    top_margin + static_cast<float>(r) * (bh + spacing)
                 };
                 createBrick(pos);
             }
@@ -99,15 +141,13 @@ namespace game {
         for (int r = 0; r < rows; ++r) {
             for (int c = 0; c < cols; ++c) {
                 SDL_FPoint pos = {
-                    WIN_WIDTH - 150 - c * (bw + spacing),
-                    100 + r * (bh + spacing)
+                    WIN_WIDTH - side_margin - static_cast<float>(c) * (bw + spacing),
+                    top_margin + static_cast<float>(r) * (bh + spacing)
                 };
                 createBrick(pos);
             }
         }
-
     }
-
 
     bool Game::prepareWindowAndTexture() {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -143,45 +183,85 @@ namespace game {
         boxWorld = b2CreateWorld(&worldDef);
     }
 
-    void Game::prepareWalls() const    {
+    void Game::prepareWalls() const {
         /* ---------- 1. Body & shape templates ---------- */
         b2BodyDef bodyDef = b2DefaultBodyDef();
-        bodyDef.type      = b2_staticBody;      // every wall is static
+        bodyDef.type = b2_staticBody; // every wall is static
 
         b2ShapeDef shapeDef = b2DefaultShapeDef();
-        shapeDef.density    = 1;                // irrelevant for static bodies
-        shapeDef.isSensor   = false;            // ← hard surface
+        shapeDef.density = 1; // irrelevant for static bodies
+        shapeDef.isSensor = false; // ← hard surface
         shapeDef.enableSensorEvents = false;
 
         /* ---------- 2. Small helper to spawn one wall ---------- */
         auto makeWall = [&](float cx, float cy,
-                            float hx, float hy)
-        {
+                            float hx, float hy) {
             b2Polygon box = b2MakeBox(hx, hy);
-            bodyDef.position = { cx, cy };
+            bodyDef.position = {cx, cy};
 
             b2BodyId body = b2CreateBody(boxWorld, &bodyDef);
             b2CreatePolygonShape(body, &shapeDef, &box);
         };
 
         /* ---------- 3. Dimensions in physics-metres ---------- */
-        constexpr float W = WIN_WIDTH  / BOX_SCALE;   // play-field width
-        constexpr float H = WIN_HEIGHT / BOX_SCALE;   // play-field height
-        constexpr float T = 1.0f;                     // wall half-thickness
+        constexpr float W = WIN_WIDTH / BOX_SCALE; // play-field width
+        constexpr float H = WIN_HEIGHT / BOX_SCALE; // play-field height
+        constexpr float T = 1.0f; // wall half-thickness
 
         /* ---------- 4. Build the four walls ---------- */
         // ⬆ Top
-        makeWall(W * 0.5f, -T,          /* centre */ W * 0.5f, T);
+        makeWall(W * 0.5f, -T, /* centre */ W * 0.5f, T);
 
         // ⬇ Bottom
-        makeWall(W * 0.5f, H + T,       /* centre */ W * 0.5f, T);
+        makeWall(W * 0.5f, H + T, /* centre */ W * 0.5f, T);
 
         // ⬅ Left
-        makeWall(-T,        H * 0.5f,   /* centre */ T,        H * 0.5f);
+        makeWall(-T, H * 0.5f, /* centre */ T, H * 0.5f);
 
         // ➡ Right
-        makeWall(W + T,     H * 0.5f,   /* centre */ T,        H * 0.5f);
+        makeWall(W + T, H * 0.5f, /* centre */ T, H * 0.5f);
     }
+
+    /*class InputSystem {
+    public:
+        void update() {
+            for (int i = 0; i < _entities.size(); ++i) {
+                ent_type e = _entities[i];
+                if (!World::mask(e).test(mask)) {
+                    _entities[i] = _entities[_entities.size() - 1];
+                    _entities.pop();
+                    --i;
+                    continue;
+                }
+            }
+        }
+
+        void updateEntities() {
+            for (int i = 0; i < World::sizeAdded(); ++i) {
+                const AddedMask &am = World::getAdded(i);
+
+                if ((!am.prev.test(mask)) && (am.next.test(mask))) {
+                    _entities.push(am.e);
+                }
+            }
+        }
+
+        InputSystem() {
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(mask)) {
+                    _entities.push(e);
+                }
+            }
+        }
+
+    private:
+        Bag<ent_type, 100> _entities;
+
+        static const inline Mask mask = MaskBuilder()
+                .set<Keys>()
+                .set<Intent>()
+                .build();
+    };*/
 
     void Game::box_system() const {
         static const Mask mask = MaskBuilder()
@@ -199,6 +279,46 @@ namespace game {
                     {t.p.x * BOX_SCALE, t.p.y * BOX_SCALE},
                     RAD_TO_DEG * b2Rot_GetAngle(t.q)
                 };
+            }
+        }
+    }
+
+    void Game::input_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<Keys>()
+                .set<Intent>()
+                .build();
+
+        SDL_PumpEvents();
+        const bool *keys = SDL_GetKeyboardState(nullptr);
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(mask)) {
+                const auto &k = World::getComponent<Keys>(e);
+                auto &i = World::getComponent<Intent>(e);
+
+                i.up = keys[k.up];
+                i.down = keys[k.down];
+                i.tilt_up = keys[k.tilt_up];
+                i.tilt_down = keys[k.tilt_down];
+            }
+        }
+    }
+
+    void Game::move_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<Intent>()
+                .set<Collider>()
+                .build();
+        //todo : block the paddels from going through the floor and ceiling
+        // also adding the tilting on tilt_up / tilt_down
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(mask)) {
+                const auto &i = World::getComponent<Intent>(e);
+                const auto &c = World::getComponent<Collider>(e);
+
+                const float f = i.up ? -5 : i.down ? 5 : 0;
+                b2Body_SetLinearVelocity(c.b, {0, f});
             }
         }
     }
@@ -239,9 +359,8 @@ namespace game {
         prepareBoxWorld();
         prepareWalls();
         createBall();
+        createPads();
         placeBricks();
-        // createPad(PAD1_TEX, {50, WIN_HEIGHT / 2}, {SDL_SCANCODE_W, SDL_SCANCODE_S});
-        // createPad(PAD2_TEX, {WIN_WIDTH - 50, WIN_HEIGHT / 2}, {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN});
     }
 
     Game::~Game() {
@@ -257,10 +376,13 @@ namespace game {
         SDL_Quit();
     }
 
-    void Game::run() {
+    void Game::run() const {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
         auto start = SDL_GetTicks();
         bool quit = false;
+
+        //todo : ask moshe about this class since i dont really understand it
+        // as you ca see there is this class InputSystem and there is a system called input_system()
 
         // InputSystem is;
         while (!quit) {
@@ -273,10 +395,12 @@ namespace game {
             World::step();
             //finally World::step() to clear added() array
 
-            //input_system();
-            // move_system();
+            input_system();
+            move_system();
+
             box_system();
-            // score_system();
+            // todo: implement reset on all bricks lost (maybe?)
+            //score_system();
             draw_system();
 
             const auto end = SDL_GetTicks();
@@ -285,6 +409,7 @@ namespace game {
             }
             start += static_cast<Uint64>(GAME_FRAME);
 
+            // todo : move this in to the input system
             SDL_Event e;
             while (SDL_PollEvent(&e)) {
                 if (e.type == SDL_EVENT_QUIT)

@@ -48,6 +48,28 @@ namespace pong {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
+    void Pong::createPad(const SDL_FRect& r, const SDL_FPoint& p, const Keys& k) const
+    {
+        b2BodyDef padBodyDef = b2DefaultBodyDef();
+        padBodyDef.type = b2_kinematicBody;
+        padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
+        b2BodyId padBody = b2CreateBody(boxWorld, &padBodyDef);
+
+        b2ShapeDef padShapeDef = b2DefaultShapeDef();
+        padShapeDef.density = 1;
+
+        b2Polygon padBox = b2MakeBox(r.w*PAD_TEX_SCALE/BOX_SCALE/2, r.h*PAD_TEX_SCALE/BOX_SCALE/2);
+        b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
+
+        Entity::create().addAll(
+            Transform{{},0},
+            Drawable{r, {r.w*PAD_TEX_SCALE, r.h*PAD_TEX_SCALE}},
+            Collider{padBody},
+            Intent{},
+            k
+        );
+    }
+
     bool Pong::prepareWindowAndTexture() {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
             cout << SDL_GetError() << endl;
@@ -153,7 +175,7 @@ namespace pong {
     private:
         Bag<ent_type, 100> _entities;
 
-        static const inline Mask mask = MaskBuilder()
+        static const inline Mask mvask = MaskBuilder()
                 .set<Keys>()
                 .set<Intent>()
                 .build();
