@@ -302,13 +302,11 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::constraints_system() const    {
         paddle_bounds();
         ball_speed_cap();
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::input_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Keys>()
@@ -331,7 +329,6 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::move_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Intent>()
@@ -408,7 +405,6 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::brick_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Breakable>()
@@ -443,7 +439,6 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::score_system() const {
         static const Mask mask = MaskBuilder()
                 .set<IsCollision>()
@@ -462,7 +457,6 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::paddle_bounds() const    {
         static const Mask paddleMask = MaskBuilder()
             .set<Collider>()
@@ -511,7 +505,6 @@ namespace game {
         }
     }
 
-    // ReSharper disable once CppMemberFunctionMayBeStatic
     void Game::ball_speed_cap() const    {
         static const Mask colliderMask = MaskBuilder()
             .set<Collider>()
@@ -533,6 +526,27 @@ namespace game {
                 b2Body_SetLinearVelocity(b, {x*scale, y*scale});
             }
         }
+    }
+
+    bool Game::poll_quit() const {
+        SDL_Event e;
+        while (SDL_PollEvent(&e))
+            if (e.type == SDL_EVENT_QUIT ||
+               (e.type == SDL_EVENT_KEY_DOWN &&
+                e.key.scancode == SDL_SCANCODE_ESCAPE))
+                return true;
+        return false;
+    }
+
+    void Game::pace_frame() const    {
+        static Uint32 frameStart = SDL_GetTicks();
+        const Uint64 frameEnd = SDL_GetTicks();
+        const Uint64 elapsed  = frameEnd - frameStart;
+
+        if (elapsed) {
+            SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
+        }
+        frameStart += static_cast<Uint64>(GAME_FRAME);   // schedule next frame
     }
 
     Game::Game() {
@@ -560,50 +574,32 @@ namespace game {
         SDL_Quit();
     }
 
+
+
     void Game::run() const {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-        auto start = SDL_GetTicks();
-        bool quit = false;
 
         //todo : ask moshe about this class since i dont really understand it
         // as you ca see there is this class InputSystem and there is a system called input_system()
 
         // InputSystem is;
+        bool quit = false;
         while (!quit) {
-            //is.updateEntities();
-            //first updateEntities() for all systems
-
-            //is.update();
-            //then update() for all systems
-
-            World::step();
-            //finally World::step() to clear added() array
+            //is.updateEntities();  //first updateEntities() for all systems
+            //is.update(); //then update() for all systems
+            World::step(); //finally World::step() to clear added() array
 
             input_system();
             move_system();
-
             box_system();
             constraints_system();
             collision_detector_system();
             brick_system();
             score_system();
-            // todo: implement reset on all bricks lost (maybe?)
             draw_system();
 
-            const auto end = SDL_GetTicks();
-            if (const auto elapsed = end - start) {
-                SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-            }
-            start += static_cast<Uint64>(GAME_FRAME);
-
-            // todo : move this in to the input system
-            SDL_Event e;
-            while (SDL_PollEvent(&e)) {
-                if (e.type == SDL_EVENT_QUIT)
-                    quit = true;
-                else if ((e.type == SDL_EVENT_KEY_DOWN) && (e.key.scancode == SDL_SCANCODE_ESCAPE))
-                    quit = true;
-            }
+            pace_frame();
+            quit = poll_quit();
         }
     }
 }

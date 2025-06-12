@@ -48,11 +48,13 @@ namespace game {
         /// helpers
         void paddle_bounds() const;   // Y-clamp  +  angle-clamp
         void ball_speed_cap() const;  // velocity limiter
+        bool poll_quit() const;
 
         /// factories
         void createBall() const;
         void createBrick(const SDL_FPoint &pos, int row) const;
         void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
+        void pace_frame() const;
 
         /// init game
         bool prepareWindowAndTexture();
