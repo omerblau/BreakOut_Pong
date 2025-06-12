@@ -26,9 +26,10 @@ namespace game {
 
         b2ShapeDef ballShapeDef = b2DefaultShapeDef();
         ballShapeDef.enableSensorEvents = true;
+        ballShapeDef.enableContactEvents = true;
         ballShapeDef.density = 1;
         ballShapeDef.material.friction = 0;
-        ballShapeDef.material.restitution = 0.0f;
+        ballShapeDef.material.restitution = 1.0f;
         b2Circle ballCircle = {0, 0, BALL_COORDS.w * BALL_TEX_SCALE / BOX_SCALE / 2};
 
         b2BodyId ballBody = b2CreateBody(boxWorld, &ballBodyDef);
@@ -43,7 +44,7 @@ namespace game {
         Entity ballEntity = Entity::create();
         ballEntity.addAll(
             Transform{{}, 0},
-            Drawable{{BALL_COORDS}, {BALL_COORDS.w * BALL_TEX_SCALE, BALL_COORDS.h * BALL_TEX_SCALE}},
+            Drawable{BALL_COORDS, {BALL_COORDS.w * BALL_TEX_SCALE, BALL_COORDS.h * BALL_TEX_SCALE}},
             Collider{ballBody}
         );
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
@@ -60,30 +61,31 @@ namespace game {
         b2Body_SetTransform(padBody, padBodyDef.position, rot);
 
         b2ShapeDef padShapeDef = b2DefaultShapeDef();
-        padShapeDef.density = 1;
+        padShapeDef.density = 0;
 
         const b2Polygon padBox = b2MakeBox(
             r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
             r.h * PAD_TEX_SCALE / BOX_SCALE / 2);
         b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
-
-        Entity::create().addAll(
+        Entity padEntity = Entity::create();
+        padEntity.addAll(
             Transform{{}, 0},
             Drawable{r, {r.w * PAD_TEX_SCALE, r.h * PAD_TEX_SCALE}},
             Collider{padBody},
             Intent{},
             k
         );
+        b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
     }
 
     void Game::createPads() const {
-        createPad(PAD1_COORDS, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD_COORDS, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
                       SDL_SCANCODE_W,
                       SDL_SCANCODE_S,
                       SDL_SCANCODE_D,
                       SDL_SCANCODE_A
                   });
-        createPad(PAD2_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
                       SDL_SCANCODE_UP,
                       SDL_SCANCODE_DOWN,
                       SDL_SCANCODE_LEFT,
@@ -91,7 +93,7 @@ namespace game {
                   });
     }
 
-    void Game::createBrick(const SDL_FPoint &pos) const {
+    void Game::createBrick(const SDL_FPoint &pos, int row) const {
         // physics body
         b2BodyDef def = b2DefaultBodyDef();
         def.type = b2_staticBody;
@@ -101,19 +103,40 @@ namespace game {
         shapeDef.density = 1;
 
         b2Polygon box = b2MakeBox(
-            BRICK_COORDS.w * BRICKS_TEX_SCALE / BOX_SCALE / 2,
-            BRICK_COORDS.h * BRICKS_TEX_SCALE / BOX_SCALE / 2
+            135 * BRICKS_TEX_SCALE / BOX_SCALE / 2,
+            78 * BRICKS_TEX_SCALE / BOX_SCALE / 2
         );
 
         b2BodyId body = b2CreateBody(boxWorld, &def);
         b2CreatePolygonShape(body, &shapeDef, &box);
 
-        Entity brick = Entity::create();
-        brick.addAll(
+        brick_coords coords;
+        switch (row % 4) {
+            case 0:
+                coords = {RED_BRICK_COORDS[0], RED_BRICK_COORDS[1], 0};
+                break;
+            case 1:
+                coords = {ORANGE_BRICK_COORDS[0], ORANGE_BRICK_COORDS[1], 0};
+                break;
+            case 2:
+                coords = {GREEN_BRICK_COORDS[0], GREEN_BRICK_COORDS[1], 0};
+                break;
+            case 3:
+                coords = {YELLOW_BRICK_COORDS[0], YELLOW_BRICK_COORDS[1], 0};
+                break;
+            default:
+                break;
+        }
+
+        Entity brickEntity = Entity::create();
+        brickEntity.addAll(
             Transform{pos, 0},
-            Drawable{BRICK_COORDS, {BRICK_COORDS.w * BRICKS_TEX_SCALE, BRICK_COORDS.h * BRICKS_TEX_SCALE}},
-            Collider{body}
+            Drawable{coords.pos[0], {135 * BRICKS_TEX_SCALE, 78 * BRICKS_TEX_SCALE}},
+            ChangePart{coords},
+            Collider{body},
+            Breakable{}
         );
+        b2Body_SetUserData(body, new ent_type{brickEntity.entity()});
     }
 
     void Game::placeBricks() const {
@@ -123,8 +146,8 @@ namespace game {
         constexpr int side_margin = 50;
         constexpr float spacing = 10.0f;
 
-        constexpr float bw = BRICK_COORDS.w * BRICKS_TEX_SCALE;
-        constexpr float bh = BRICK_COORDS.h * BRICKS_TEX_SCALE;
+        constexpr float bw = 135 * BRICKS_TEX_SCALE;
+        constexpr float bh = 78 * BRICKS_TEX_SCALE;
 
         // left side
         for (int r = 0; r < rows; ++r) {
@@ -133,7 +156,7 @@ namespace game {
                     side_margin + static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos);
+                createBrick(pos, r);
             }
         }
 
@@ -144,7 +167,7 @@ namespace game {
                     WIN_WIDTH - side_margin - static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos);
+                createBrick(pos, r);
             }
         }
     }
@@ -351,6 +374,64 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
+    void Game::collision_detector_system () const {
+        static const Mask mask = MaskBuilder()
+                .set<Collider>()
+                .build();
+        const b2ContactEvents& events = b2World_GetContactEvents(boxWorld);
+        for (int i = 0; i < events.beginCount; ++i) {
+            std::cout << "Collision detected between: " << std::endl;
+            b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+            b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+
+            auto *visitor1 = static_cast<ent_type*>(b2Body_GetUserData(e1));
+            auto *visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+            if (visitor1 && World::mask(*visitor1).test(mask))
+                World::addComponent(*visitor1, IsCollision{});
+            if (visitor2 && World::mask(*visitor2).test(mask)) {
+                visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+                World::addComponent(*visitor2, IsCollision{});
+            }
+        }
+    }
+
+    void Game::brick_system () const {
+        static const Mask mask = MaskBuilder()
+            .set<Breakable>()
+            .set<IsCollision>()
+            .set<ChangePart>()
+            .set<Drawable>()
+            .build();
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(mask)) {
+                auto &c = World::getComponent<ChangePart>(e);
+                auto &d = World::getComponent<Drawable>(e);
+
+                c.coords.idx++;
+                if (c.coords.idx >= 2) {
+                    // destroy the brick
+                    World::destroyEntity(e);
+                }
+
+                else {
+                    // change the part of the brick
+                    World::delComponent<IsCollision>(e);
+                    World::getComponent<Drawable>(e) = {
+                        c.coords.pos[c.coords.idx],
+                        {d.size.x, d.size.y}
+                    };
+                }
+            }
+        }
+
+
+
+
+    }
+
+
+
     Game::Game() {
         if (!prepareWindowAndTexture())
             return;
@@ -399,8 +480,9 @@ namespace game {
             move_system();
 
             box_system();
+            collision_detector_system();
+            brick_system();
             // todo: implement reset on all bricks lost (maybe?)
-            //score_system();
             draw_system();
 
             const auto end = SDL_GetTicks();
