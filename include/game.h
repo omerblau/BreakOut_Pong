@@ -1,4 +1,4 @@
-// This is the newgame.h file
+// This is game.h file
 
 #pragma once
 #include "bagel.h"
@@ -37,14 +37,12 @@ namespace game {
     private:
         /// systems
         void box_system() const;
+        void constraints_system() const;
         void input_system() const;
         void move_system() const;
         void draw_system() const;
-
         void collision_detector_system() const;
-
         void brick_system() const;
-
         void score_system() const;
 
         /// factories
@@ -65,9 +63,12 @@ namespace game {
 
         static constexpr float GAME_FRAME = 1000.f / FPS;
         static constexpr float RAD_TO_DEG = 57.2958f;
+        static constexpr float DEG_TO_RAD = 1.0f / RAD_TO_DEG;
 
-        static constexpr int   PAD_Y_MARGIN    = 200;
-        static constexpr float BALL_INIT_MPS   = 3.0f;    // 3 m/s ≈ 30 px/s
+        static constexpr int   PAD_Y_MARGIN  = 200;
+        static constexpr float PAD_MOVE      = 5.0f;
+        static constexpr float PAD_TILT      = 12.0f;
+        static constexpr float BALL_INIT_MPS = 3.0f;    // 3 m/s ≈ 30 px/s
 
         static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
