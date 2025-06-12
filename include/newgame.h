@@ -72,6 +72,7 @@ namespace game {
         static constexpr float PAD_TEX_SCALE    = 0.35f;
 
         SDL_Texture  *tex{};
+        SDL_Texture *bgTex{};
         SDL_Renderer *ren{};
         SDL_Window   *win{};
 

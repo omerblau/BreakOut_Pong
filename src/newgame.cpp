@@ -184,6 +184,13 @@ namespace game {
             return false;
         }
 
+        bgTex = IMG_LoadTexture(ren, "res/bg.png");
+        if (!bgTex) {
+            std::cerr << "IMG_LoadTexture Error: " << SDL_GetError() << "\n";
+            return false;
+        }
+
+
         SDL_Surface *surf = IMG_Load("res/spritesheet.png");
         if (surf == nullptr) {
             cout << SDL_GetError() << endl;
@@ -353,6 +360,8 @@ namespace game {
                 .build();
 
         SDL_RenderClear(ren);
+        SDL_RenderTexture(ren, bgTex, nullptr, nullptr);
+
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
