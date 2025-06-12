@@ -2,7 +2,7 @@
 
 #pragma once
 #include "bagel.h"
-#include "../res/atlas_bricks_ball.h"
+#include "atlas_bricks_ball.h"
 #include <SDL3/SDL.h>
 #include <box2d/box2d.h>
 
@@ -11,12 +11,20 @@ using namespace bagel;
 
 namespace game {
 
+    using brick_coords = struct {
+        SDL_FRect pos[2];
+        int idx = 0;
+    };
+
     using Transform = struct { SDL_FPoint p; float a; };
-    using Drawable = struct { SDL_FRect part; SDL_FPoint size; };
+    using Drawable = struct {SDL_FRect part; SDL_FPoint size; };
+    using ChangePart = struct {brick_coords coords;};
     using Intent = struct { bool up, down, tilt_down, tilt_up; };
     using Keys = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
     using Collider = struct { b2BodyId b; };
     using Scorer = struct { b2ShapeId s; };
+    using IsCollision = struct {};
+    using Breakable = struct {};
 
     class Game {
     public:
@@ -32,9 +40,13 @@ namespace game {
         void move_system() const;
         void draw_system() const;
 
+        void collision_detector_system() const;
+
+        void brick_system() const;
+
         /// factories
         void createBall() const;
-        void createBrick(const SDL_FPoint &pos) const;
+        void createBrick(const SDL_FPoint &pos, int row) const;
         void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
 
         /// init game
@@ -58,11 +70,6 @@ namespace game {
         static constexpr float BALL_TEX_SCALE   = 0.3f;
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.35f;
-
-        static constexpr SDL_FRect BALL_TEX  = {ball.x, ball.y, ball.w, ball.h};
-        static constexpr SDL_FRect PAD1_TEX  = {pad.x, pad.y, pad.w, pad.h};
-        static constexpr SDL_FRect PAD2_TEX  = {pad.x, pad.y, pad.w, pad.h};
-        static constexpr SDL_FRect BRICK_TEX = {brick_red_1.x, brick_red_1.y, brick_red_1.w, brick_red_1.h}; // atlas_bricks_ball.h
 
         SDL_Texture  *tex{};
         SDL_Renderer *ren{};

@@ -12,7 +12,7 @@ add_executable(
 #        include/Pong.h
 #        include/game.h
         include/components.h
-        res/atlas_bricks_ball.h
+        include/atlas_bricks_ball.h
         src/newgame.cpp
         include/newgame.h
 )
