@@ -1,4 +1,4 @@
-#include "include/newgame.h"
+#include "include/game.h"
 using namespace game;
 
 int main() {
