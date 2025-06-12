@@ -1,75 +1,88 @@
+// This is the newgame.h file
+
 #pragma once
 #include "bagel.h"
-#include "../include/game.h"
+#include "atlas_bricks_ball.h"
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
 #include <box2d/box2d.h>
-#include <iostream>
-#include "components.h"
-#include "../res/atlas_bricks_ball.h"
 
+    // @formatter:off
 using namespace bagel;
 
 namespace game {
 
-    class Game
-    {
+    using brick_coords = struct {
+        SDL_FRect pos[NUM_BRICK_STATE];
+        int idx = 0;
+    };
+
+    using Transform = struct { SDL_FPoint p; float a; };
+    using Drawable = struct {SDL_FRect part; SDL_FPoint size; };
+    using ChangePart = struct {brick_coords coords;};
+    using Intent = struct { bool up, down, tilt_down, tilt_up; };
+    using Keys = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
+    using Collider = struct { b2BodyId b; };
+    using Scorer = struct { b2ShapeId s; };
+    using IsCollision = struct {};
+    using Breakable = struct {};
+    using Goal = struct {bool left, right;};
+
+    class Game {
     public:
         Game();
         ~Game();
-
         bool valid() const;
-        void run();
-
-        void box_system() const;
+        void run() const;
 
     private:
-        bool prepareWindow();
-        void prepareBoxWorld();
-
-        void createBall() const;
-
-        void createBallEntity();
-        void createPadEntity();
-        void createWalls();
-
+        /// systems
+        void box_system() const;
+        void input_system() const;
         void move_system() const;
-
         void draw_system() const;
 
-        void createBricks();
+        void collision_detector_system() const;
 
-        void inputSystem();
-        void moveSystem();
-        void drawSystem();
-        void scoreSystem(); //maybe not needed in this game
-        void boxSystem(float deltaTime);
+        void brick_system() const;
 
-        SDL_Renderer* ren;
-        SDL_Window* win;
+        void score_system() const;
+
+        /// factories
+        void createBall() const;
+        void createBrick(const SDL_FPoint &pos, int row) const;
+        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
+
+        /// init game
+        bool prepareWindowAndTexture();
+        void prepareBoxWorld();
+        void prepareWalls() const;
+        void createPads() const;
+        void placeBricks() const;
+
+        static constexpr int WIN_WIDTH = 1500;
+        static constexpr int WIN_HEIGHT = 1000;
+        static constexpr int FPS = 60;
+
+        static constexpr float GAME_FRAME = 1000.f / FPS;
+        static constexpr float RAD_TO_DEG = 57.2958f;
+
+        static constexpr int   PAD_Y_MARGIN    = 200;
+        static constexpr float BALL_INIT_MPS   = 3.0f;    // 3 m/s ≈ 30 px/s
+
+        static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
+        static constexpr float BALL_TEX_SCALE   = 0.3f;
+        static constexpr float BRICKS_TEX_SCALE = 0.5f;
+        static constexpr float PAD_TEX_SCALE    = 0.35f;
+
+        static constexpr int BRICK_W = 78;
+        static constexpr int BRICK_H = 135;
+
+        SDL_Texture  *tex{};
+        SDL_Texture *bgTex{};
+        SDL_Renderer *ren{};
+        SDL_Window   *win{};
 
         b2WorldId boxWorld = b2_nullWorldId;
-
-        static constexpr int    WIN_WIDTH = 1280;
-        static constexpr int    WIN_HEIGHT = 800;
-        static constexpr int	FPS = 60;
-
-
-        static constexpr float	GAME_FRAME = 1000.f/FPS;
-        static constexpr float	RAD_TO_DEG = 57.2958f;
-
-        static constexpr float	BOX_SCALE = 10;
-        static constexpr float	BALL_TEX_SCALE = 0.5f;
-        static constexpr float	PAD_TEX_SCALE = 0.25f;
-
-        static constexpr SDL_FRect BALL_TEX = {ball.x, ball.y, ball.w, ball.h};
-
-
-        SDL_Renderer* ren = nullptr;
-        SDL_Window* win = nullptr;
-        SDL_Texture* tex = nullptr;
-        b2WorldId boxWorld = b2_nullWorldId;
-        };
     };
-}
-
+};
+// @formatter:on

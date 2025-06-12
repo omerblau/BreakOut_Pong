@@ -13,8 +13,8 @@ add_executable(
 #        include/game.h
         include/components.h
         include/atlas_bricks_ball.h
-        src/newgame.cpp
-        include/newgame.h
+        src/game.cpp
+        include/game.h
 )
 
 set(SDL_STATIC ON)
