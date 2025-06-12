@@ -45,6 +45,10 @@ namespace game {
         void brick_system() const;
         void score_system() const;
 
+        /// helpers
+        void paddle_bounds() const;   // Y-clamp  +  angle-clamp
+        void ball_speed_cap() const;  // velocity limiter
+
         /// factories
         void createBall() const;
         void createBrick(const SDL_FPoint &pos, int row) const;

@@ -303,92 +303,9 @@ namespace game {
     }
 
     // ReSharper disable once CppMemberFunctionMayBeStatic
-    void Game::constraints_system() const {
-        static const Mask paddleMask = MaskBuilder()
-                .set<Collider>()
-                .set<Intent>() // paddles have Intent
-                .build();
-
-        static const Mask ballMask = MaskBuilder()
-                .set<Collider>()
-                .build();
-
-        /* ---------- sprite dimensions in metres (half-extents) ---------- */
-        constexpr float PAD_HALF_W_M =
-                (PAD_COORDS.w * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
-        constexpr float PAD_HALF_H_M =
-                (PAD_COORDS.h * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
-
-        constexpr float WORLD_H_M = WIN_HEIGHT / BOX_SCALE;
-
-        /* ---------- angle clamp around vertical ---------- */
-        constexpr float BASE_TILT_RAD = 90.0f * DEG_TO_RAD;
-        constexpr float MAX_OFFSET_RAD = 45.0f * DEG_TO_RAD;
-        constexpr float MIN_TILT_RAD = BASE_TILT_RAD - MAX_OFFSET_RAD; // 45°
-        constexpr float MAX_TILT_RAD = BASE_TILT_RAD + MAX_OFFSET_RAD; // 135°
-
-        /* ---------- 1. paddle bounds ---------- */
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (!World::mask(e).test(paddleMask)) continue;
-
-            const b2BodyId body = World::getComponent<Collider>(e).b;
-
-            /* current transform */
-            b2Transform tx = b2Body_GetTransform(body);
-            b2Vec2 p = tx.p;
-            float ang = b2Rot_GetAngle(tx.q);
-
-            /* ---- dynamic half-height along world Y ---- */
-            const float cy = std::cos(ang);
-            const float sy = std::sin(ang);
-            const float halfY = std::fabs(cy) * PAD_HALF_H_M + std::fabs(sy) * PAD_HALF_W_M;
-
-            /* ---- clamp Y so the rectangle stays inside ---- */
-            bool yClamped = false;
-            if (p.y - halfY < 0.f) {
-                p.y = halfY;
-                yClamped = true;
-            }
-            if (p.y + halfY > WORLD_H_M) {
-                p.y = WORLD_H_M - halfY;
-                yClamped = true;
-            }
-            if (yClamped) {
-                b2Body_SetTransform(body, p, tx.q);
-                b2Body_SetLinearVelocity(body, {0.f, 0.f});
-                tx.p = p; // keep tx for angle correction
-            }
-
-            /* ---- clamp angle (45°–135°) ---- */
-            float clamped = std::clamp(ang, MIN_TILT_RAD, MAX_TILT_RAD);
-            if (clamped != ang) {
-                const b2Rot rot = {std::cos(clamped), std::sin(clamped)};
-                b2Body_SetTransform(body, tx.p, rot);
-                b2Body_SetAngularVelocity(body, 0.f);
-            }
-        }
-
-        /* ---------- 2. ball velocity cap ---------- */
-
-
-        /* ---------- ball speed cap ---------- */
-        constexpr float MAX_BALL_MPS = 10.0f;
-        constexpr float MAX_BALL_V2 = MAX_BALL_MPS * MAX_BALL_MPS;
-
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (!World::mask(e).test(ballMask)) continue;
-            if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
-
-            b2BodyId body = World::getComponent<Collider>(e).b;
-            if (b2Body_GetType(body) != b2_dynamicBody) continue; // bricks/walls
-
-            b2Vec2 v = b2Body_GetLinearVelocity(body);
-            float v2 = v.x * v.x + v.y * v.y;
-            if (v2 > MAX_BALL_V2) {
-                float scale = MAX_BALL_MPS / SDL_sqrtf(v2);
-                b2Body_SetLinearVelocity(body, {v.x * scale, v.y * scale});
-            }
-        }
+    void Game::constraints_system() const    {
+        paddle_bounds();
+        ball_speed_cap();
     }
 
     // ReSharper disable once CppMemberFunctionMayBeStatic
@@ -541,6 +458,79 @@ namespace game {
                 } else {
                     std::cout << "Right player scored!" << std::endl;
                 }
+            }
+        }
+    }
+
+    // ReSharper disable once CppMemberFunctionMayBeStatic
+    void Game::paddle_bounds() const    {
+        static const Mask paddleMask = MaskBuilder()
+            .set<Collider>()
+            .set<Intent>()      // only paddles have Intent
+            .build();
+
+        /* ─ constants (shared across frames) ─ */
+        constexpr float HALF_W_M = (PAD_COORDS.w * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
+        constexpr float HALF_H_M = (PAD_COORDS.h * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
+        constexpr float WORLD_H  = WIN_HEIGHT / BOX_SCALE;
+
+        constexpr float BASE     = 90.0f * DEG_TO_RAD;  // vertical
+        constexpr float MAX_OFF  = 45.0f * DEG_TO_RAD;
+        constexpr float MIN_TILT = BASE - MAX_OFF;      // 45°
+        constexpr float MAX_TILT = BASE + MAX_OFF;      // 135°
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(paddleMask)) continue;
+
+            const b2BodyId b = World::getComponent<Collider>(e).b;
+            auto [p, q] = b2Body_GetTransform(b);
+            b2Vec2 pos = p;
+            float   ang = b2Rot_GetAngle(q);
+
+            /* dynamic half-height in world Y */
+            const float cy = std::cos(ang);
+            const float sy = std::sin(ang);
+            const float halfY = std::fabs(cy) * HALF_H_M + std::fabs(sy) * HALF_W_M;
+
+            /* Y clamp */
+            bool yHit = false;
+            if (pos.y - halfY < 0.f)      { pos.y = halfY;          yHit = true; }
+            if (pos.y + halfY > WORLD_H)  { pos.y = WORLD_H-halfY;  yHit = true; }
+            if (yHit) {
+                b2Body_SetTransform(b, pos, q);
+                b2Body_SetLinearVelocity(b, {0.f, 0.f});
+                p = pos;
+            }
+
+            /* angle clamp */
+            if (const float fixed = std::clamp(ang, MIN_TILT, MAX_TILT); fixed != ang) {
+                const b2Rot r{ std::cos(fixed), std::sin(fixed) };
+                b2Body_SetTransform(b, p, r);
+                b2Body_SetAngularVelocity(b, 0.f);
+            }
+        }
+    }
+
+    // ReSharper disable once CppMemberFunctionMayBeStatic
+    void Game::ball_speed_cap() const    {
+        static const Mask colliderMask = MaskBuilder()
+            .set<Collider>()
+            .build();
+
+        constexpr float MAX_MPS  = 10.0f;
+        constexpr float MAX_V2   = MAX_MPS * MAX_MPS;
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(colliderMask)) continue;
+            if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
+
+            const b2BodyId b = World::getComponent<Collider>(e).b;
+            if (b2Body_GetType(b) != b2_dynamicBody) continue;        // bricks/walls
+
+            auto [x, y] = b2Body_GetLinearVelocity(b);
+            if (const float v2 = x*x + y*y; v2 > MAX_V2) {
+                const float scale = MAX_MPS / SDL_sqrtf(v2);
+                b2Body_SetLinearVelocity(b, {x*scale, y*scale});
             }
         }
     }
