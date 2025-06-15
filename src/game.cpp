@@ -302,7 +302,7 @@ namespace game {
         }
     }
 
-    void Game::constraints_system() const    {
+    void Game::constraints_system() const {
         paddle_bounds();
         ball_speed_cap();
     }
@@ -457,21 +457,21 @@ namespace game {
         }
     }
 
-    void Game::paddle_bounds() const    {
+    void Game::paddle_bounds() const {
         static const Mask paddleMask = MaskBuilder()
-            .set<Collider>()
-            .set<Intent>()      // only paddles have Intent
-            .build();
+                .set<Collider>()
+                .set<Intent>() // only paddles have Intent
+                .build();
 
         /* ─ constants (shared across frames) ─ */
         constexpr float HALF_W_M = (PAD_COORDS.w * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
         constexpr float HALF_H_M = (PAD_COORDS.h * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
-        constexpr float WORLD_H  = WIN_HEIGHT / BOX_SCALE;
+        constexpr float WORLD_H = WIN_HEIGHT / BOX_SCALE;
 
-        constexpr float BASE     = 90.0f * DEG_TO_RAD;  // vertical
-        constexpr float MAX_OFF  = 45.0f * DEG_TO_RAD;
-        constexpr float MIN_TILT = BASE - MAX_OFF;      // 45°
-        constexpr float MAX_TILT = BASE + MAX_OFF;      // 135°
+        constexpr float BASE = 90.0f * DEG_TO_RAD; // vertical
+        constexpr float MAX_OFF = 45.0f * DEG_TO_RAD;
+        constexpr float MIN_TILT = BASE - MAX_OFF; // 45°
+        constexpr float MAX_TILT = BASE + MAX_OFF; // 135°
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (!World::mask(e).test(paddleMask)) continue;
@@ -479,7 +479,7 @@ namespace game {
             const b2BodyId b = World::getComponent<Collider>(e).b;
             auto [p, q] = b2Body_GetTransform(b);
             b2Vec2 pos = p;
-            float   ang = b2Rot_GetAngle(q);
+            float ang = b2Rot_GetAngle(q);
 
             /* dynamic half-height in world Y */
             const float cy = std::cos(ang);
@@ -488,8 +488,14 @@ namespace game {
 
             /* Y clamp */
             bool yHit = false;
-            if (pos.y - halfY < 0.f)      { pos.y = halfY;          yHit = true; }
-            if (pos.y + halfY > WORLD_H)  { pos.y = WORLD_H-halfY;  yHit = true; }
+            if (pos.y - halfY < 0.f) {
+                pos.y = halfY;
+                yHit = true;
+            }
+            if (pos.y + halfY > WORLD_H) {
+                pos.y = WORLD_H - halfY;
+                yHit = true;
+            }
             if (yHit) {
                 b2Body_SetTransform(b, pos, q);
                 b2Body_SetLinearVelocity(b, {0.f, 0.f});
@@ -498,32 +504,32 @@ namespace game {
 
             /* angle clamp */
             if (const float fixed = std::clamp(ang, MIN_TILT, MAX_TILT); fixed != ang) {
-                const b2Rot r{ std::cos(fixed), std::sin(fixed) };
+                const b2Rot r{std::cos(fixed), std::sin(fixed)};
                 b2Body_SetTransform(b, p, r);
                 b2Body_SetAngularVelocity(b, 0.f);
             }
         }
     }
 
-    void Game::ball_speed_cap() const    {
+    void Game::ball_speed_cap() const {
         static const Mask colliderMask = MaskBuilder()
-            .set<Collider>()
-            .build();
+                .set<Collider>()
+                .build();
 
-        constexpr float MAX_MPS  = 10.0f;
-        constexpr float MAX_V2   = MAX_MPS * MAX_MPS;
+        constexpr float MAX_MPS = 10.0f;
+        constexpr float MAX_V2 = MAX_MPS * MAX_MPS;
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (!World::mask(e).test(colliderMask)) continue;
             if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
 
             const b2BodyId b = World::getComponent<Collider>(e).b;
-            if (b2Body_GetType(b) != b2_dynamicBody) continue;        // bricks/walls
+            if (b2Body_GetType(b) != b2_dynamicBody) continue; // bricks/walls
 
             auto [x, y] = b2Body_GetLinearVelocity(b);
-            if (const float v2 = x*x + y*y; v2 > MAX_V2) {
+            if (const float v2 = x * x + y * y; v2 > MAX_V2) {
                 const float scale = MAX_MPS / SDL_sqrtf(v2);
-                b2Body_SetLinearVelocity(b, {x*scale, y*scale});
+                b2Body_SetLinearVelocity(b, {x * scale, y * scale});
             }
         }
     }
@@ -532,21 +538,19 @@ namespace game {
         SDL_Event e;
         while (SDL_PollEvent(&e))
             if (e.type == SDL_EVENT_QUIT ||
-               (e.type == SDL_EVENT_KEY_DOWN &&
-                e.key.scancode == SDL_SCANCODE_ESCAPE))
+                (e.type == SDL_EVENT_KEY_DOWN &&
+                 e.key.scancode == SDL_SCANCODE_ESCAPE))
                 return true;
         return false;
     }
 
-    void Game::pace_frame() const    {
+    void Game::pace_frame() const {
         static Uint32 frameStart = SDL_GetTicks();
         const Uint64 frameEnd = SDL_GetTicks();
-        const Uint64 elapsed  = frameEnd - frameStart;
-
-        if (elapsed) {
+        const Uint64 elapsed = frameEnd - frameStart;
+        if (elapsed)
             SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-        }
-        frameStart += static_cast<Uint64>(GAME_FRAME);   // schedule next frame
+        frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
     }
 
     Game::Game() {
@@ -573,7 +577,6 @@ namespace game {
 
         SDL_Quit();
     }
-
 
 
     void Game::run() const {
