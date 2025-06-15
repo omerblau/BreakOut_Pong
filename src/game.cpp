@@ -578,20 +578,12 @@ namespace game {
         SDL_Quit();
     }
 
-
     void Game::run() const {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
-        //todo : ask moshe about this class since i dont really understand it
-        // as you ca see there is this class InputSystem and there is a system called input_system()
-
-        // InputSystem is;
         bool quit = false;
         while (!quit) {
-            //is.updateEntities();  //first updateEntities() for all systems
-            //is.update(); //then update() for all systems
-            World::step(); //finally World::step() to clear added() array
-
+            World::step();
             input_system();
             move_system();
             box_system();

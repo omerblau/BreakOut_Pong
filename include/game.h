@@ -11,27 +11,23 @@ using namespace bagel;
 
 namespace game {
 
-    using brick_coords = struct {
-        SDL_FRect pos[NUM_BRICK_STATE];
-        int idx = 0;
-    };
-
-    using Transform = struct { SDL_FPoint p; float a; };
-    using Drawable = struct {SDL_FRect part; SDL_FPoint size; };
-    using ChangePart = struct {brick_coords coords;};
-    using Intent = struct { bool up, down, tilt_down, tilt_up; };
-    using Keys = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
-    using Collider = struct { b2BodyId b; };
-    using Scorer = struct { b2ShapeId s; };
-    using IsCollision = struct {};
-    using Breakable = struct {};
-    using Goal = struct {bool left, right;};
+    using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
+    using Transform    = struct { SDL_FPoint p; float a; };
+    using Drawable     = struct {SDL_FRect part; SDL_FPoint size; };
+    using ChangePart   = struct {brick_coords coords;};
+    using Intent       = struct { bool up, down, tilt_down, tilt_up; };
+    using Keys         = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
+    using Collider     = struct { b2BodyId b; };
+    using Scorer       = struct { b2ShapeId s; };
+    using IsCollision  = struct {};
+    using Breakable    = struct {};
+    using Goal         = struct {bool left, right;};
 
     class Game {
     public:
         Game();
         ~Game();
-        bool valid() const;
+        [[nodiscard]] bool valid() const; //todo: remove this if we never use later (moshe had it)
         void run() const;
 
     private:
@@ -46,9 +42,9 @@ namespace game {
         void score_system() const;
 
         /// helpers
-        void paddle_bounds() const;   // Y-clamp  +  angle-clamp
-        void ball_speed_cap() const;  // velocity limiter
-        bool poll_quit() const;
+        void paddle_bounds() const;
+        void ball_speed_cap() const;
+        [[nodiscard]] bool poll_quit() const;
 
         /// factories
         void createBall() const;
@@ -74,7 +70,7 @@ namespace game {
         static constexpr int   PAD_Y_MARGIN  = 200;
         static constexpr float PAD_MOVE      = 5.0f;
         static constexpr float PAD_TILT      = 12.0f;
-        static constexpr float BALL_INIT_MPS = 3.0f;    // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_INIT_MPS = 3.0f;       // 3 m/s ≈ 30 px/s
 
         static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
@@ -85,7 +81,7 @@ namespace game {
         static constexpr int BRICK_H = 135;
 
         SDL_Texture  *tex{};
-        SDL_Texture *bgTex{};
+        SDL_Texture  *bgTex{};
         SDL_Renderer *ren{};
         SDL_Window   *win{};
 
