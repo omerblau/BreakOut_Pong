@@ -1,5 +1,5 @@
 #pragma once
-#include "../res/atlas_bricks_ball.h"
+#include "atlas_bricks_ball.h"
 #include <SDL3/SDL.h>
 #include <box2d/box2d.h>
 

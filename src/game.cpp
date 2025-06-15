@@ -156,7 +156,7 @@ namespace game {
     }
 
     void Game::placeBricks() const {
-        constexpr int cols = 3;
+        constexpr int cols = 1;
         constexpr int rows = 18;
         constexpr int top_margin = 20;
         constexpr int side_margin = 20;

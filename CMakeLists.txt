@@ -7,24 +7,19 @@ add_executable(
         ${PROJECT_NAME}
         main.cpp
         include/bagel_cfg.h
-        #        src/game.cpp
-        #        src/Pong.cpp
-        #        include/Pong.h
-        #        include/game.h
         include/components.h
         include/atlas_bricks_ball.h
         src/game.cpp
         include/game.h
 )
 
-set(SDL_STATIC ON)
-set(SDL_SHARED OFF)
 add_subdirectory(lib/SDL)
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3-static)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/SDL/include)
 
-set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(lib/SDL_image)
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3_image-static)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/SDL_image/include)
 
 set(BOX2D_SAMPLES OFF)
 set(BOX2D_BENCHMARKS OFF)
@@ -34,6 +29,7 @@ set(BOX2D_VALIDATE OFF)
 set(BOX2D_UNIT_TESTS OFF)
 add_subdirectory(lib/box2d)
 target_link_libraries(${PROJECT_NAME} PUBLIC box2d)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/box2d/include)
 
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
