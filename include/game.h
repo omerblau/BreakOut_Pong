@@ -26,6 +26,10 @@ namespace game {
     using IsCollision = struct {};
     using Breakable = struct {};
     using Goal = struct {bool left, right;};
+    using Falling      = struct { float vy; float playerCollectId;}; // constant vertical velocity (px/s) for power ups
+    using EnlargePU    = struct {}; // tag – specific effect: enlarge paddle
+    using PUtimer = struct { float ballHit; }; // countdown timer for power up effects
+
 
     class Game {
     public:
@@ -47,6 +51,11 @@ namespace game {
 
         void score_system() const;
 
+        void powerup_move_system() const;
+        void powerup_collision_system() const;
+
+        void enlarge_timer_system() const;
+
         /// factories
         void createBall() const;
         void createBrick(const SDL_FPoint &pos, int row) const;
@@ -58,6 +67,7 @@ namespace game {
         void prepareWalls() const;
         void createPads() const;
         void placeBricks() const;
+        void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const;
 
         static constexpr int WIN_WIDTH = 1500;
         static constexpr int WIN_HEIGHT = 1000;
@@ -67,7 +77,7 @@ namespace game {
         static constexpr float RAD_TO_DEG = 57.2958f;
 
         static constexpr int   PAD_Y_MARGIN    = 200;
-        static constexpr float BALL_INIT_MPS   = 3.0f;    // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_INIT_MPS   = 50.0f;    // 3 m/s ≈ 30 px/s
 
         static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
@@ -76,6 +86,8 @@ namespace game {
 
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
+
+        static constexpr float PU_SPEED_PPS = 50.0f;  // pixels per second
 
         SDL_Texture  *tex{};
         SDL_Texture *bgTex{};

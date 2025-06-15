@@ -360,6 +360,38 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
+
+    void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const {
+        // 1. physics (sensor)
+        b2BodyDef bd = b2DefaultBodyDef();
+        bd.type      = b2_kinematicBody;
+        bd.position  = { pos.x / BOX_SCALE, pos.y / BOX_SCALE };
+        b2BodyId b = b2CreateBody(boxWorld, &bd);
+
+        b2ShapeDef sd = b2DefaultShapeDef();
+        sd.isSensor   = true;               // collect only, no collision response
+        b2Polygon box = b2MakeBox(20 / BOX_SCALE, 20 / BOX_SCALE);
+        b2CreatePolygonShape(b, &sd, &box);
+
+        /* -------- choose horizontal direction -------- */
+        float vx = (pos.x > WIN_WIDTH / 2) ? -PU_SPEED_PPS :  PU_SPEED_PPS;
+
+        // 2. entity
+        Entity e = Entity::create();
+        e.addAll(
+            Transform{ pos, 0 },
+            Drawable{ r, { 40, 40 } },   // use heart sprite
+            Collider{ b },
+            EnlargePU{},
+            Falling{vx,0}
+        );
+        b2Body_SetUserData(b, new ent_type{e.entity()});
+
+        /* give the Box2D body the same velocity (m/s) */
+        b2Body_SetLinearVelocity(b, { vx / BOX_SCALE, 0.0f });
+    }
+
+
     void Game::collision_detector_system () const {
         static const Mask mask = MaskBuilder()
                 .set<Collider>()
@@ -392,18 +424,26 @@ namespace game {
             .set<Collider>()
             .build();
 
+
+        static int bricksBroken = 0;
+
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
                 auto &c = World::getComponent<ChangePart>(e);
                 auto &d = World::getComponent<Drawable>(e);
+
+
 
                 c.coords.idx++;
                 if (c.coords.idx >= NUM_BRICK_STATE) {
                     // destroy the brick
                     b2BodyId body = World::getComponent<Collider>(e).b;
                     if (b2Body_IsValid(body)) {
-                        b2DestroyBody(body);
-                        World::destroyEntity(e);
+
+                        // cashes:
+
+                        //b2DestroyBody(body);
+                        //World::destroyEntity(e);
                     }
 
                 }
@@ -415,10 +455,104 @@ namespace game {
                         c.coords.pos[c.coords.idx],
                         {d.size.x, d.size.y}
                     };
+
+                    if (++bricksBroken % 2 == 0) {
+                        std::cout << "brick cunt!" << bricksBroken << std::endl;
+                        createPowerUp(POWERUP_ENLARGE, { World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
+                    }
+
                 }
+
             }
         }
     }
+
+
+
+    void Game::powerup_move_system() const
+    {
+        static const Mask m = MaskBuilder()
+                .set<Falling>()
+                .set<Transform>()
+                .set<Collider>()
+                .build();
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id)
+            if (World::mask(e).test(m))
+            {
+                auto& t = World::getComponent<Transform>(e);
+                auto& f = World::getComponent<Falling>(e);
+                auto& c = World::getComponent<Collider>(e);
+
+                // Box2D already advances the body; we only sync Transform for rendering
+                b2Transform tf = b2Body_GetTransform(c.b);
+                t.p.x = tf.p.x * BOX_SCALE;
+                t.p.y = tf.p.y * BOX_SCALE;
+
+                // if off–screen → delete
+                if (t.p.x < -50 || t.p.x > WIN_WIDTH + 50)
+                    World::destroyEntity(e);
+            }
+    }
+
+
+    void Game::powerup_collision_system() const {
+        static const Mask padM = MaskBuilder().set<Collider>().set<Drawable>().build();
+        static const Mask puM  = MaskBuilder().set<Falling>().set<Collider>().build();
+
+        const b2ContactEvents& ev = b2World_GetContactEvents(boxWorld);
+
+        for (int i = 0; i < ev.beginCount; ++i) {
+            b2BodyId a = b2Shape_GetBody(ev.beginEvents[i].shapeIdA);
+            b2BodyId b = b2Shape_GetBody(ev.beginEvents[i].shapeIdB);
+
+            auto* ea = static_cast<ent_type*>(b2Body_GetUserData(a));
+            auto* eb = static_cast<ent_type*>(b2Body_GetUserData(b));
+            if (!ea || !eb) continue;
+
+            auto handle = [&](ent_type pad, ent_type pu) {
+                if (!World::mask(pad).test(padM) || !World::mask(pu).test(puM)) return;
+
+                // enlarge drawable + collider
+                auto& dr = World::getComponent<Drawable>(pad);
+                //SDL_FPoint newSize = { dr.size.x, dr.size.y * PAD_ENLARGE_F };
+                //World::addComponent(pad, PUtimer{ PAD_ENLARGE_T, dr.size });
+                //dr.size = newSize;
+
+                // adjust Box2D shape (simplest: scale transform)
+                b2BodyId body = World::getComponent<Collider>(pad).b;
+                b2Transform tf = b2Body_GetTransform(body);
+                b2DestroyBody(body);                                // rebuild body
+                // re-create kinematic body with bigger box...
+                // (left as exercise – similar ל-createPad but עם size חדשה)
+
+                World::destroyEntity(pu);                           // consume PU
+            };
+            handle(*ea, *eb);
+            handle(*eb, *ea);
+        }
+    }
+
+
+    void Game::enlarge_timer_system() const {
+        static const Mask m = MaskBuilder().set<PUtimer>().set<Drawable>().build();
+        const float dt = GAME_FRAME / 1000.f;
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id)
+            if (World::mask(e).test(m)) {
+                auto& et = World::getComponent<PUtimer>(e);
+                et.ballHit -= dt;
+                if (et.ballHit >= 5.0f) {
+                    auto& dr = World::getComponent<Drawable>(e);
+                    //dr.size = et.origSize;
+                    World::delComponent<PUtimer>(e);
+                    // גם צריך לכווץ את גוף Box2D חזרה (בדומה להצמחה)
+                }
+            }
+    }
+
+
+
     void Game::score_system () const {
         static const Mask mask = MaskBuilder()
             .set<IsCollision>()
@@ -492,6 +626,11 @@ namespace game {
             collision_detector_system();
             brick_system();
             score_system();
+
+            powerup_move_system();
+            powerup_collision_system();
+            enlarge_timer_system();
+
             // todo: implement reset on all bricks lost (maybe?)
             draw_system();
 
