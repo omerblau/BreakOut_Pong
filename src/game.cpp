@@ -1,12 +1,13 @@
 // This is game.cpp file
 
 #include "../include/game.h"
+#include "../include/components.h"
 
 #include <iostream>
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 #include <box2d/box2d.h>
-#include "../lib/box2d/src/body.h"
+
 
 using namespace std;
 
@@ -15,7 +16,8 @@ using namespace bagel;
 
 namespace game {
     bool Game::valid() const {
-        return tex != nullptr;
+        return tex != nullptr && bgTex != nullptr && pauseTex != nullptr && 
+               leftWinTex != nullptr && rightWinTex != nullptr;
     }
 
     void Game::createBall() const {
@@ -57,9 +59,10 @@ namespace game {
                     BALL_COORDS.h * BALL_TEX_SCALE
                 }
             },
-            Collider{ballBody}
+            Collider{ballBody},
+            Ball{}
         );
-        b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
+        b2Body_SetUserData(ballBody, reinterpret_cast<void*>(static_cast<uintptr_t>(ballEntity.entity().id)));
     }
 
     void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k) const {
@@ -87,7 +90,7 @@ namespace game {
             Intent{},
             k
         );
-        b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
+        b2Body_SetUserData(padBody, reinterpret_cast<void*>(static_cast<uintptr_t>(padEntity.entity().id)));
     }
 
     void Game::createPads() const {
@@ -149,7 +152,7 @@ namespace game {
             Collider{body},
             Breakable{}
         );
-        b2Body_SetUserData(body, new ent_type{brickEntity.entity()});
+        b2Body_SetUserData(body, reinterpret_cast<void*>(static_cast<uintptr_t>(brickEntity.entity().id)));
     }
 
     void Game::placeBricks() const {
@@ -194,29 +197,80 @@ namespace game {
         if (!SDL_CreateWindowAndRenderer(
             "Breakout Pong", WIN_WIDTH, WIN_HEIGHT, 0, &win, &ren)) {
             cout << SDL_GetError() << endl;
+            SDL_Quit();
             return false;
         }
 
         bgTex = IMG_LoadTexture(ren, "res/bg.png");
         if (!bgTex) {
             std::cerr << "IMG_LoadTexture Error: " << SDL_GetError() << "\n";
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
-
 
         SDL_Surface *surf = IMG_Load("res/spritesheet.png");
         if (surf == nullptr) {
             cout << SDL_GetError() << endl;
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
 
         tex = SDL_CreateTextureFromSurface(ren, surf);
+        SDL_DestroySurface(surf);
+        
         if (tex == nullptr) {
             cout << SDL_GetError() << endl;
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
 
-        SDL_DestroySurface(surf);
+        // Load pause texture
+        pauseTex = IMG_LoadTexture(ren, "res/pause.png");
+        if (!pauseTex) {
+            std::cerr << "Failed to load pause.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
+        // Load left win texture
+        leftWinTex = IMG_LoadTexture(ren, "res/left_win.png");
+        if (!leftWinTex) {
+            std::cerr << "Failed to load left_win.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(pauseTex);
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
+        // Load right win texture
+        rightWinTex = IMG_LoadTexture(ren, "res/right_win.png");
+        if (!rightWinTex) {
+            std::cerr << "Failed to load right_win.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(leftWinTex);
+            SDL_DestroyTexture(pauseTex);
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
         return true;
     }
 
@@ -249,7 +303,7 @@ namespace game {
                 Collider{body},
                 Goal{isLeft, !isLeft}
             );
-            b2Body_SetUserData(body, new ent_type{wallEntity.entity()});
+            b2Body_SetUserData(body, reinterpret_cast<void*>(static_cast<uintptr_t>(wallEntity.entity().id)));
             cout.flush();
             cout << "Created wall at (" << cx << ", " << cy << ") with Goal: "
                     << (isLeft ? "Left" : "Right") << " entity number is: " << wallEntity.entity().id << std::endl;
@@ -293,7 +347,7 @@ namespace game {
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
-                b2Transform t = b2Body_GetTransform(World::getComponent<Collider>(e).b);
+                b2Transform t = b2Body_GetTransform(World::getComponent<Collider>(e).body);
                 World::getComponent<Transform>(e) = {
                     {t.p.x * BOX_SCALE, t.p.y * BOX_SCALE},
                     RAD_TO_DEG * b2Rot_GetAngle(t.q)
@@ -334,8 +388,6 @@ namespace game {
                 .set<Intent>()
                 .set<Collider>()
                 .build();
-        //todo : block the paddles from going through the floor and ceiling
-        // also adding the tilting on tilt_up / tilt_down
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
@@ -343,11 +395,11 @@ namespace game {
                 const auto &c = World::getComponent<Collider>(e);
 
                 const float f = i.up ? -PAD_MOVE : i.down ? PAD_MOVE : 0.f;
-                b2Body_SetLinearVelocity(c.b, {0, f});
+                b2Body_SetLinearVelocity(c.body, {0, f});
 
                 /* smooth tilting – keeps rotating while key is held */
                 float angVel = (i.tilt_up ? -PAD_TILT : (i.tilt_down ? PAD_TILT : 0.f)) * DEG_TO_RAD;
-                b2Body_SetAngularVelocity(c.b, angVel);
+                b2Body_SetAngularVelocity(c.body, angVel);
             }
         }
     }
@@ -359,24 +411,42 @@ namespace game {
                 .build();
 
         SDL_RenderClear(ren);
-        SDL_RenderTexture(ren, bgTex, nullptr, nullptr);
+        
+        // Draw game elements only if playing
+        if (gameState == GameState::PLAYING || gameState == GameState::PAUSED) {
+            SDL_RenderTexture(ren, bgTex, nullptr, nullptr);
 
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(mask)) {
+                    const auto &d = World::getComponent<Drawable>(e);
+                    const auto &t = World::getComponent<Transform>(e);
 
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(mask)) {
-                const auto &d = World::getComponent<Drawable>(e);
-                const auto &t = World::getComponent<Transform>(e);
+                    const SDL_FRect dst = {
+                        t.p.x - d.size.x / 2,
+                        t.p.y - d.size.y / 2,
+                        d.size.x, d.size.y
+                    };
 
-                const SDL_FRect dst = {
-                    t.p.x - d.size.x / 2,
-                    t.p.y - d.size.y / 2,
-                    d.size.x, d.size.y
-                };
-
-                SDL_RenderTextureRotated(
-                    ren, tex, &d.part, &dst, t.a,
-                    nullptr, SDL_FLIP_NONE);
+                    SDL_RenderTextureRotated(
+                        ren, tex, &d.part, &dst, t.angle,
+                        nullptr, SDL_FLIP_NONE);
+                }
             }
+        }
+
+        // Draw overlay screens
+        switch (gameState) {
+            case GameState::PAUSED:
+                SDL_RenderTexture(ren, pauseTex, nullptr, nullptr);
+                break;
+            case GameState::LEFT_WIN:
+                SDL_RenderTexture(ren, leftWinTex, nullptr, nullptr);
+                break;
+            case GameState::RIGHT_WIN:
+                SDL_RenderTexture(ren, rightWinTex, nullptr, nullptr);
+                break;
+            default:
+                break;
         }
 
         SDL_RenderPresent(ren);
@@ -388,19 +458,24 @@ namespace game {
                 .build();
         const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
         for (int i = 0; i < events.beginCount; ++i) {
-            std::cout << "Collision detected between: " << std::endl;
             b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
             b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
 
-            auto *visitor1 = static_cast<ent_type *>(b2Body_GetUserData(e1));
-            cout << "Entity 1: " << (visitor1 ? std::to_string(visitor1->id) : "null") << std::endl;
-            auto *visitor2 = static_cast<ent_type *>(b2Body_GetUserData(e2));
-            cout << "Entity 2: " << (visitor2 ? std::to_string(visitor2->id) : "null") << std::endl;
-            if (visitor1 && World::mask(*visitor1).test(mask))
-                World::addComponent(*visitor1, IsCollision{});
-            if (visitor2 && World::mask(*visitor2).test(mask)) {
-                visitor2 = static_cast<ent_type *>(b2Body_GetUserData(e2));
-                World::addComponent(*visitor2, IsCollision{});
+            void* userData1 = b2Body_GetUserData(e1);
+            void* userData2 = b2Body_GetUserData(e2);
+            
+            if (userData1) {
+                ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
+                if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
+                    World::addComponent(entity1, IsCollision{});
+                }
+            }
+            
+            if (userData2) {
+                ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
+                if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
+                    World::addComponent(entity2, IsCollision{});
+                }
             }
         }
     }
@@ -422,7 +497,7 @@ namespace game {
                 c.coords.idx++;
                 if (c.coords.idx >= NUM_BRICK_STATE) {
                     // destroy the brick
-                    b2BodyId body = World::getComponent<Collider>(e).b;
+                    b2BodyId body = World::getComponent<Collider>(e).body;
                     if (b2Body_IsValid(body)) {
                         b2DestroyBody(body);
                         World::destroyEntity(e);
@@ -439,20 +514,43 @@ namespace game {
         }
     }
 
-    void Game::score_system() const {
-        static const Mask mask = MaskBuilder()
+    void Game::score_system() {
+        static const Mask goalMask = MaskBuilder()
                 .set<IsCollision>()
                 .set<Goal>()
                 .build();
+        
+        static const Mask ballMask = MaskBuilder()
+                .set<Ball>()
+                .set<Collider>()
+                .build();
 
+        bool scored = false;
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(mask)) {
+            if (World::mask(e).test(goalMask)) {
                 auto &winner = World::getComponent<Goal>(e);
                 if (winner.left) {
-                    std::cout << "Left player scored!" << std::endl;
-                } else {
                     std::cout << "Right player scored!" << std::endl;
+                    gameState = GameState::RIGHT_WIN;
+                } else {
+                    std::cout << "Left player scored!" << std::endl;
+                    gameState = GameState::LEFT_WIN;
                 }
+                scored = true;
+            }
+        }
+        
+        // Don't respawn ball immediately when someone wins
+    }
+
+    void Game::cleanup_collision_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<IsCollision>()
+                .build();
+        
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(mask)) {
+                World::delComponent<IsCollision>(e);
             }
         }
     }
@@ -463,7 +561,6 @@ namespace game {
                 .set<Intent>() // only paddles have Intent
                 .build();
 
-        /* ─ constants (shared across frames) ─ */
         constexpr float HALF_W_M = (PAD_COORDS.w * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
         constexpr float HALF_H_M = (PAD_COORDS.h * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
         constexpr float WORLD_H = WIN_HEIGHT / BOX_SCALE;
@@ -476,7 +573,7 @@ namespace game {
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (!World::mask(e).test(paddleMask)) continue;
 
-            const b2BodyId b = World::getComponent<Collider>(e).b;
+            const b2BodyId b = World::getComponent<Collider>(e).body;
             auto [p, q] = b2Body_GetTransform(b);
             b2Vec2 pos = p;
             float ang = b2Rot_GetAngle(q);
@@ -523,7 +620,7 @@ namespace game {
             if (!World::mask(e).test(colliderMask)) continue;
             if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
 
-            const b2BodyId b = World::getComponent<Collider>(e).b;
+            const b2BodyId b = World::getComponent<Collider>(e).body;
             if (b2Body_GetType(b) != b2_dynamicBody) continue; // bricks/walls
 
             auto [x, y] = b2Body_GetLinearVelocity(b);
@@ -535,22 +632,90 @@ namespace game {
     }
 
     bool Game::poll_quit() const {
+        // This is now just a flag check, actual polling happens in handle_game_state_input
+        return false;
+    }
+
+    void Game::handle_game_state_input() {
         SDL_Event e;
-        while (SDL_PollEvent(&e))
+        while (SDL_PollEvent(&e)) {
             if (e.type == SDL_EVENT_QUIT ||
                 (e.type == SDL_EVENT_KEY_DOWN &&
-                 e.key.scancode == SDL_SCANCODE_ESCAPE))
-                return true;
-        return false;
+                 e.key.scancode == SDL_SCANCODE_ESCAPE)) {
+                // Set a quit flag that will be checked by poll_quit
+                const_cast<Game*>(this)->shouldQuit = true;
+                continue;
+            }
+            
+            if (e.type == SDL_EVENT_KEY_DOWN) {
+                switch (gameState) {
+                    case GameState::PLAYING:
+                        if (e.key.scancode == SDL_SCANCODE_P) {
+                            gameState = GameState::PAUSED;
+                        }
+                        break;
+                        
+                    case GameState::PAUSED:
+                        if (e.key.scancode == SDL_SCANCODE_P) {
+                            gameState = GameState::PLAYING;
+                        } else if (e.key.scancode == SDL_SCANCODE_N) {
+                            reset_game();
+                            gameState = GameState::PLAYING;
+                        }
+                        break;
+                        
+                    case GameState::LEFT_WIN:
+                    case GameState::RIGHT_WIN:
+                        if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
+                            reset_game();
+                            gameState = GameState::PLAYING;
+                        }
+                        break;
+                        
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    void Game::destroy_all_entities() {
+        // Destroy all entities with colliders first
+        static const Mask colliderMask = MaskBuilder()
+                .set<Collider>()
+                .build();
+                
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(colliderMask)) {
+                b2BodyId body = World::getComponent<Collider>(e).body;
+                if (b2Body_IsValid(body)) {
+                    b2DestroyBody(body);
+                }
+            }
+        }
+        
+        // Destroy all entities
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            World::destroyEntity(e);
+        }
+    }
+
+    void Game::reset_game() {
+        // Destroy all game entities
+        destroy_all_entities();
+        
+        // Recreate the game world
+        prepareWalls();
+        createBall();
+        createPads();
+        placeBricks();
     }
 
     void Game::pace_frame() const {
         static Uint32 frameStart = SDL_GetTicks();
-        const Uint64 frameEnd = SDL_GetTicks();
-        const Uint64 elapsed = frameEnd - frameStart;
-        if (elapsed)
-            SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-        frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
+        const Uint32 frameEnd = SDL_GetTicks();
+
+        frameStart = SDL_GetTicks();
     }
 
     Game::Game() {
@@ -570,6 +735,14 @@ namespace game {
             b2DestroyWorld(boxWorld);
         if (tex != nullptr)
             SDL_DestroyTexture(tex);
+        if (bgTex != nullptr)
+            SDL_DestroyTexture(bgTex);
+        if (pauseTex != nullptr)
+            SDL_DestroyTexture(pauseTex);
+        if (leftWinTex != nullptr)
+            SDL_DestroyTexture(leftWinTex);
+        if (rightWinTex != nullptr)
+            SDL_DestroyTexture(rightWinTex);
         if (ren != nullptr)
             SDL_DestroyRenderer(ren);
         if (win != nullptr)
@@ -582,27 +755,28 @@ namespace game {
     void Game::run() const {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
-        //todo : ask moshe about this class since i dont really understand it
-        // as you ca see there is this class InputSystem and there is a system called input_system()
-
-        // InputSystem is;
         bool quit = false;
         while (!quit) {
-            //is.updateEntities();  //first updateEntities() for all systems
-            //is.update(); //then update() for all systems
             World::step(); //finally World::step() to clear added() array
 
-            input_system();
-            move_system();
-            box_system();
-            constraints_system();
-            collision_detector_system();
-            brick_system();
-            score_system();
+            // Handle input based on game state
+            const_cast<Game*>(this)->handle_game_state_input();
+            
+            // Only run game systems when playing
+            if (gameState == GameState::PLAYING) {
+                input_system();
+                move_system();
+                box_system();
+                constraints_system();
+                collision_detector_system();
+                brick_system();
+                const_cast<Game*>(this)->score_system();
+                cleanup_collision_system();
+            }
+            
             draw_system();
-
             pace_frame();
-            quit = poll_quit();
+            quit = shouldQuit;
         }
     }
 }

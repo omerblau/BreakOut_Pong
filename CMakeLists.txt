@@ -7,10 +7,10 @@ add_executable(
         ${PROJECT_NAME}
         main.cpp
         include/bagel_cfg.h
-#        src/game.cpp
-#        src/Pong.cpp
-#        include/Pong.h
-#        include/game.h
+        #        src/game.cpp
+        #        src/Pong.cpp
+        #        include/Pong.h
+        #        include/game.h
         include/components.h
         include/atlas_bricks_ball.h
         src/game.cpp
@@ -39,6 +39,6 @@ add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E
         copy_directory_if_different
-            "${PROJECT_SOURCE_DIR}/res"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
+        "${PROJECT_SOURCE_DIR}/res"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
 )
