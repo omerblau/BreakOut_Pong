@@ -560,53 +560,49 @@ namespace game {
         return tx;
     }
 
-    void Game::refreshKeyState() {
-        SDL_PumpEvents();
-        keyState = SDL_GetKeyboardState(&keyCount);
-    }
-
-    bool Game::anyKeyStillDown() const {
+    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
         for (int i = 0; i < keyCount; ++i)
-            if (keyState[i]) return true;
+            if (keys[i]) return true;
         return false;
     }
 
-    void Game::handleMainKeys() {
-        if (keyState[SDL_SCANCODE_1])
-            ui = UIScreen::Instructions;
-        else if (keyState[SDL_SCANCODE_2])
+    void Game::handleMainKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
             ui = UIScreen::GameModes;
+        else if (keys[SDL_SCANCODE_2])
+            ui = UIScreen::Instructions;
+
     }
 
-    void Game::handleInstructionsKeys() {
-        if (keyState[SDL_SCANCODE_1])
+    void Game::handleInstructionsKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
             ui = UIScreen::Main;
     }
 
-    void Game::handleGameModeKeys() {
-        if (keyState[SDL_SCANCODE_1]) {
+    void Game::handleGameModeKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
             mode = GameMode::FirstGoal;
             ui = UIScreen::Players;
-        } else if (keyState[SDL_SCANCODE_2]) {
+        } else if (keys[SDL_SCANCODE_2]) {
             mode = GameMode::BreakAll;
             ui = UIScreen::Players;
-        } else if (keyState[SDL_SCANCODE_3]) {
+        } else if (keys[SDL_SCANCODE_3]) {
             ui = UIScreen::Main;
         }
     }
 
-    bool Game::handlePlayersKeys() {
-        if (keyState[SDL_SCANCODE_1]) {
+    bool Game::handlePlayersKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
             players = PlayerSide::Single;
             return true;
         }
-        if (keyState[SDL_SCANCODE_2]) {
+        if (keys[SDL_SCANCODE_2]) {
             players = PlayerSide::Two;
             return true;
         }
-        if (keyState[SDL_SCANCODE_3])
+        if (keys[SDL_SCANCODE_3])
             ui = UIScreen::GameModes;
-        else if (keyState[SDL_SCANCODE_M])
+        else if (keys[SDL_SCANCODE_M])
             ui = UIScreen::Main;
         return false;
     }
@@ -642,10 +638,12 @@ namespace game {
         bool waitKeyRelease = false;
 
         while (!appQuit) {
-            refreshKeyState();
+            SDL_PumpEvents();
+            int keyCount = 0;
+            const bool *keys = SDL_GetKeyboardState(&keyCount);
 
             if (waitKeyRelease) {
-                if (anyKeyStillDown()) {
+                if (anyKeyStillDown(keys, keyCount)) {
                     showScreen(ui);
                     pace_frame();
                     continue;
@@ -657,13 +655,13 @@ namespace game {
             bool startGame = false; // s
 
             switch (ui) {
-                case UIScreen::Main: handleMainKeys();
+                case UIScreen::Main: handleMainKeys(keys);
                     break;
-                case UIScreen::Instructions: handleInstructionsKeys();
+                case UIScreen::Instructions: handleInstructionsKeys(keys);
                     break;
-                case UIScreen::GameModes: handleGameModeKeys();
+                case UIScreen::GameModes: handleGameModeKeys(keys);
                     break;
-                case UIScreen::Players: startGame = handlePlayersKeys();
+                case UIScreen::Players: startGame = handlePlayersKeys(keys);
                     break;
                 default:
                     break;
@@ -678,7 +676,7 @@ namespace game {
             if (startGame)
                 return;
 
-            if (keyState[SDL_SCANCODE_ESCAPE])
+            if (keys[SDL_SCANCODE_ESCAPE])
                 appQuit = true;
             windowClosedClicked();
         }
@@ -745,8 +743,6 @@ namespace game {
             draw_system();
 
             pace_frame();
-            if (keyState[SDL_SCANCODE_ESCAPE])
-                gameExitToMenu = true;
             windowClosedClicked();
         }
     }

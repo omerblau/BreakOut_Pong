@@ -39,12 +39,11 @@ namespace game {
         /// meus
         void showScreen(UIScreen s) const;
         void waitMainLoop();
-        void refreshKeyState();
-        [[nodiscard]] bool anyKeyStillDown() const;
-        void   handleMainKeys();
-        void   handleInstructionsKeys();
-        void   handleGameModeKeys();
-        bool   handlePlayersKeys();
+        [[nodiscard]] bool anyKeyStillDown(const bool *keys, int keyCount) const;
+        void handleMainKeys(const bool *keys);
+        void handleInstructionsKeys(const bool *keys);
+        void handleGameModeKeys(const bool *keys);
+        bool handlePlayersKeys(const bool *keys);
 
         /// systems
         void box_system() const;
@@ -107,9 +106,7 @@ namespace game {
         UIScreen    ui        = UIScreen::Main;
         GameMode mode      = GameMode::None;        // remembered at GameModes screen
         PlayerSide players   = PlayerSide::None;      // remembered at Players screen
-        const bool* keyState  = nullptr;   // updated once per frame
-        int         keyCount  = 0;
-        bool        appQuit   = false;   // global kill-switch
+        bool appQuit   = false;   // global kill-switch
 
     };
 };
