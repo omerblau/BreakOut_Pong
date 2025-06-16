@@ -13,14 +13,13 @@ add_executable(
         include/game.h
 )
 
-set(SDL_STATIC ON)
-set(SDL_SHARED OFF)
 add_subdirectory(lib/SDL)
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3-static)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/SDL/include)
 
-set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(lib/SDL_image)
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3_image-static)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/SDL_image/include)
 
 set(BOX2D_SAMPLES OFF)
 set(BOX2D_BENCHMARKS OFF)
@@ -30,11 +29,12 @@ set(BOX2D_VALIDATE OFF)
 set(BOX2D_UNIT_TESTS OFF)
 add_subdirectory(lib/box2d)
 target_link_libraries(${PROJECT_NAME} PUBLIC box2d)
+target_include_directories(${PROJECT_NAME} PUBLIC lib/box2d/include)
 
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E
         copy_directory_if_different
-            "${PROJECT_SOURCE_DIR}/res"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
+        "${PROJECT_SOURCE_DIR}/res"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
 )

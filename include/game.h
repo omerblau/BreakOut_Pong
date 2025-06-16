@@ -16,22 +16,30 @@ namespace game {
     enum class PlayerSide { None = 0, Single = 1, Two = 2 };
 
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
-    using Transform    = struct { SDL_FPoint p; float a; };
+    using Transform    = struct { SDL_FPoint p; float angle; };
     using Drawable     = struct {SDL_FRect part; SDL_FPoint size; };
     using ChangePart   = struct {brick_coords coords;};
     using Intent       = struct { bool up, down, tilt_down, tilt_up; };
     using Keys         = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
-    using Collider     = struct { b2BodyId b; };
+    using Collider     = struct { b2BodyId body; };
     using Scorer       = struct { b2ShapeId s; };
     using IsCollision  = struct {};
     using Breakable    = struct {};
     using Goal         = struct {bool left, right;};
+    using Ball         = struct {};
+
+    enum class GameState {
+        PLAYING,
+        PAUSED,
+        LEFT_WIN,
+        RIGHT_WIN
+    };
 
     class Game {
     public:
         Game();
         ~Game();
-        [[nodiscard]] bool valid() const; //todo: remove this if we never use later (moshe had it)
+        bool valid() const;
         void run();
         void launch();
 
@@ -53,11 +61,16 @@ namespace game {
         void draw_system() const;
         void collision_detector_system() const;
         void brick_system() const;
-        void score_system() const;
+        void score_system();
+        void cleanup_collision_system() const;
 
         /// helpers
-        void paddle_bounds() const;
-        void ball_speed_cap() const;
+        void handle_game_state_input();
+        void reset_game();
+        void destroy_all_entities();
+        void paddle_bounds() const;   // Y-clamp  +  angle-clamp
+        void ball_speed_cap() const;  // velocity limiter
+        bool poll_quit() const;
         void windowClosedClicked();
 
         /// factories
@@ -90,23 +103,28 @@ namespace game {
         static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
-        static constexpr float PAD_TEX_SCALE    = 0.35f;
+        static constexpr float PAD_TEX_SCALE    = 0.25f;
 
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
         SDL_Texture  *tex{};
-        SDL_Texture  *bgTex{};
+        SDL_Texture *bgTex{};
+        SDL_Texture *pauseTex{};
+        SDL_Texture *leftWinTex{};
+        SDL_Texture *rightWinTex{};
         SDL_Texture  *uiTex[static_cast<int>(UIScreen::COUNT)]{};
         SDL_Renderer *ren{};
         SDL_Window   *win{};
 
         b2WorldId boxWorld = b2_nullWorldId;
+        mutable GameState gameState = GameState::PLAYING;
+        bool shouldQuit = false;
 
-        UIScreen    ui        = UIScreen::Main;
-        GameMode mode      = GameMode::None;        // remembered at GameModes screen
-        PlayerSide players   = PlayerSide::None;      // remembered at Players screen
-        bool appQuit   = false;   // global kill-switch
+        UIScreen   ui      = UIScreen::Main;
+        GameMode   mode    = GameMode::None;        // remembered at GameModes screen
+        PlayerSide players = PlayerSide::None;      // remembered at Players screen
+        bool       appQuit = false;   // global kill-switch
 
     };
 };
