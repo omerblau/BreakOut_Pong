@@ -534,14 +534,12 @@ namespace game {
         }
     }
 
-    bool Game::poll_quit() const {
+    void Game::windowClosedClicked() {
         SDL_Event e;
-        while (SDL_PollEvent(&e))
-            if (e.type == SDL_EVENT_QUIT ||
-                (e.type == SDL_EVENT_KEY_DOWN &&
-                 e.key.scancode == SDL_SCANCODE_ESCAPE))
-                return true;
-        return false;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT)
+                appQuit = true;
+        }
     }
 
     void Game::pace_frame() const {
@@ -553,9 +551,158 @@ namespace game {
         frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
     }
 
+    /// menus
+    SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
+        SDL_Texture *tx = IMG_LoadTexture(r, file);
+        if (!tx)
+            std::cerr << "IMG_LoadTexture error (" << file << "): "
+                    << SDL_GetError() << '\n';
+        return tx;
+    }
+
+    void Game::refreshKeyState() {
+        SDL_PumpEvents();
+        keyState = SDL_GetKeyboardState(&keyCount);
+    }
+
+    bool Game::anyKeyStillDown() const {
+        for (int i = 0; i < keyCount; ++i)
+            if (keyState[i]) return true;
+        return false;
+    }
+
+    void Game::handleMainKeys() {
+        if (keyState[SDL_SCANCODE_1])
+            ui = UIScreen::Instructions;
+        else if (keyState[SDL_SCANCODE_2])
+            ui = UIScreen::GameModes;
+    }
+
+    void Game::handleInstructionsKeys() {
+        if (keyState[SDL_SCANCODE_1])
+            ui = UIScreen::Main;
+    }
+
+    void Game::handleGameModeKeys() {
+        if (keyState[SDL_SCANCODE_1]) {
+            mode = GameMode::FirstGoal;
+            ui = UIScreen::Players;
+        } else if (keyState[SDL_SCANCODE_2]) {
+            mode = GameMode::BreakAll;
+            ui = UIScreen::Players;
+        } else if (keyState[SDL_SCANCODE_3]) {
+            ui = UIScreen::Main;
+        }
+    }
+
+    bool Game::handlePlayersKeys() {
+        if (keyState[SDL_SCANCODE_1]) {
+            players = PlayerSide::Single;
+            return true;
+        }
+        if (keyState[SDL_SCANCODE_2]) {
+            players = PlayerSide::Two;
+            return true;
+        }
+        if (keyState[SDL_SCANCODE_3])
+            ui = UIScreen::GameModes;
+        else if (keyState[SDL_SCANCODE_M])
+            ui = UIScreen::Main;
+        return false;
+    }
+
+    void Game::showScreen(UIScreen s) const {
+        // 1. Fetch texture size
+        float imgW{}, imgH{};
+        if (!uiTex[static_cast<int>(s)] ||
+            !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
+            std::cerr << "showScreen: texture missing or size query failed for state "
+                    << static_cast<int>(s) << " – " << SDL_GetError() << '\n';
+            return;
+        }
+
+        // 2. “Cover” scale so the window fills without distortion
+        const float scale = std::max(WIN_WIDTH / imgW,
+                                     WIN_HEIGHT / imgH);
+
+        const SDL_FRect dst{
+            (WIN_WIDTH - imgW * scale) * 0.5f,
+            (WIN_HEIGHT - imgH * scale) * 0.5f,
+            imgW * scale,
+            imgH * scale
+        };
+
+        // 3. Render
+        SDL_RenderClear(ren);
+        SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
+        SDL_RenderPresent(ren);
+    }
+
+    void Game::waitMainLoop() {
+        bool waitKeyRelease = false;
+
+        while (!appQuit) {
+            refreshKeyState();
+
+            if (waitKeyRelease) {
+                if (anyKeyStillDown()) {
+                    showScreen(ui);
+                    pace_frame();
+                    continue;
+                }
+                waitKeyRelease = false;
+            }
+
+            const UIScreen prev = ui;
+            bool startGame = false; // s
+
+            switch (ui) {
+                case UIScreen::Main: handleMainKeys();
+                    break;
+                case UIScreen::Instructions: handleInstructionsKeys();
+                    break;
+                case UIScreen::GameModes: handleGameModeKeys();
+                    break;
+                case UIScreen::Players: startGame = handlePlayersKeys();
+                    break;
+                default:
+                    break;
+            }
+
+            if (ui != prev)
+                waitKeyRelease = true;
+
+            showScreen(ui);
+            pace_frame();
+
+            if (startGame)
+                return;
+
+            if (keyState[SDL_SCANCODE_ESCAPE])
+                appQuit = true;
+            windowClosedClicked();
+        }
+    }
+
+    void Game::launch() {
+        while (!appQuit) {
+            waitMainLoop();
+            if (appQuit)
+                break;
+
+            run();
+        }
+    }
+
     Game::Game() {
         if (!prepareWindowAndTexture())
             return;
+
+        uiTex[static_cast<int>(UIScreen::Main)] = loadTex(ren, "res/bg_mainMenu.png");
+        uiTex[static_cast<int>(UIScreen::Instructions)] = loadTex(ren, "res/bg_instructions.png");
+        uiTex[static_cast<int>(UIScreen::GameModes)] = loadTex(ren, "res/bg_GameModeMenu.png");
+        uiTex[static_cast<int>(UIScreen::Players)] = loadTex(ren, "res/bg_players.png");
+
         SDL_srand(time(nullptr));
 
         prepareBoxWorld();
@@ -566,6 +713,10 @@ namespace game {
     }
 
     Game::~Game() {
+        for (const auto &i: uiTex)
+            if (i)
+                SDL_DestroyTexture(i);
+
         if (b2World_IsValid(boxWorld))
             b2DestroyWorld(boxWorld);
         if (tex != nullptr)
@@ -578,11 +729,11 @@ namespace game {
         SDL_Quit();
     }
 
-    void Game::run() const {
+    void Game::run() {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
-        bool quit = false;
-        while (!quit) {
+        bool gameExitToMenu = false;
+        while (!gameExitToMenu && !appQuit) {
             World::step();
             input_system();
             move_system();
@@ -594,7 +745,9 @@ namespace game {
             draw_system();
 
             pace_frame();
-            quit = poll_quit();
+            if (keyState[SDL_SCANCODE_ESCAPE])
+                gameExitToMenu = true;
+            windowClosedClicked();
         }
     }
 }

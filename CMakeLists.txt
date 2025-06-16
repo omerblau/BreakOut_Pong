@@ -7,10 +7,6 @@ add_executable(
         ${PROJECT_NAME}
         main.cpp
         include/bagel_cfg.h
-#        src/game.cpp
-#        src/Pong.cpp
-#        include/Pong.h
-#        include/game.h
         include/components.h
         include/atlas_bricks_ball.h
         src/game.cpp
