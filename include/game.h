@@ -11,6 +11,10 @@ using namespace bagel;
 
 namespace game {
 
+    enum class UIScreen {Main, Instructions, GameModes, Players, Playing, COUNT};
+    enum class GameMode   { None, FirstGoal, BreakAll };
+    enum class PlayerSide { None = 0, Single = 1, Two = 2 };
+
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
     using Transform    = struct { SDL_FPoint p; float angle; };
     using Drawable     = struct {SDL_FRect part; SDL_FPoint size; };
@@ -36,9 +40,19 @@ namespace game {
         Game();
         ~Game();
         bool valid() const;
-        void run() const;
+        void run();
+        void launch();
 
     private:
+        /// meus
+        void showScreen(UIScreen s) const;
+        void waitMainLoop();
+        [[nodiscard]] bool anyKeyStillDown(const bool *keys, int keyCount) const;
+        void handleMainKeys(const bool *keys);
+        void handleInstructionsKeys(const bool *keys);
+        void handleGameModeKeys(const bool *keys);
+        bool handlePlayersKeys(const bool *keys);
+
         /// systems
         void box_system() const;
         void constraints_system() const;
@@ -57,12 +71,14 @@ namespace game {
         void paddle_bounds() const;   // Y-clamp  +  angle-clamp
         void ball_speed_cap() const;  // velocity limiter
         bool poll_quit() const;
+        void windowClosedClicked();
 
         /// factories
         void createBall() const;
         void createBrick(const SDL_FPoint &pos, int row) const;
         void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
         void pace_frame() const;
+
 
         /// init game
         bool prepareWindowAndTexture();
@@ -97,12 +113,19 @@ namespace game {
         SDL_Texture *pauseTex{};
         SDL_Texture *leftWinTex{};
         SDL_Texture *rightWinTex{};
+        SDL_Texture  *uiTex[static_cast<int>(UIScreen::COUNT)]{};
         SDL_Renderer *ren{};
         SDL_Window   *win{};
 
         b2WorldId boxWorld = b2_nullWorldId;
         mutable GameState gameState = GameState::PLAYING;
         bool shouldQuit = false;
+
+        UIScreen   ui      = UIScreen::Main;
+        GameMode   mode    = GameMode::None;        // remembered at GameModes screen
+        PlayerSide players = PlayerSide::None;      // remembered at Players screen
+        bool       appQuit = false;   // global kill-switch
+
     };
 };
 // @formatter:on

@@ -460,6 +460,7 @@ namespace game {
                 .build();
         const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
         for (int i = 0; i < events.beginCount; ++i) {
+            std::cout << "Collision detected between: " << std::endl;
             b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
             b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
 
@@ -639,6 +640,14 @@ namespace game {
         return false;
     }
 
+    void Game::windowClosedClicked() {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT)
+                appQuit = true;
+        }
+    }
+
     void Game::handle_game_state_input() {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -723,9 +732,156 @@ namespace game {
         frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
     }
 
+    /// menus
+    SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
+        SDL_Texture *tx = IMG_LoadTexture(r, file);
+        if (!tx)
+            std::cerr << "IMG_LoadTexture error (" << file << "): "
+                    << SDL_GetError() << '\n';
+        return tx;
+    }
+
+    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
+        for (int i = 0; i < keyCount; ++i)
+            if (keys[i]) return true;
+        return false;
+    }
+
+    void Game::handleMainKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
+            ui = UIScreen::GameModes;
+        else if (keys[SDL_SCANCODE_2])
+            ui = UIScreen::Instructions;
+
+    }
+
+    void Game::handleInstructionsKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
+            ui = UIScreen::Main;
+    }
+
+    void Game::handleGameModeKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
+            mode = GameMode::FirstGoal;
+            ui = UIScreen::Players;
+        } else if (keys[SDL_SCANCODE_2]) {
+            mode = GameMode::BreakAll;
+            ui = UIScreen::Players;
+        } else if (keys[SDL_SCANCODE_3]) {
+            ui = UIScreen::Main;
+        }
+    }
+
+    bool Game::handlePlayersKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
+            players = PlayerSide::Single;
+            return true;
+        }
+        if (keys[SDL_SCANCODE_2]) {
+            players = PlayerSide::Two;
+            return true;
+        }
+        if (keys[SDL_SCANCODE_3])
+            ui = UIScreen::GameModes;
+        else if (keys[SDL_SCANCODE_M])
+            ui = UIScreen::Main;
+        return false;
+    }
+
+    void Game::showScreen(UIScreen s) const {
+        // 1. Fetch texture size
+        float imgW{}, imgH{};
+        if (!uiTex[static_cast<int>(s)] ||
+            !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
+            std::cerr << "showScreen: texture missing or size query failed for state "
+                    << static_cast<int>(s) << " – " << SDL_GetError() << '\n';
+            return;
+        }
+
+        // 2. “Cover” scale so the window fills without distortion
+        const float scale = std::max(WIN_WIDTH / imgW,
+                                     WIN_HEIGHT / imgH);
+
+        const SDL_FRect dst{
+            (WIN_WIDTH - imgW * scale) * 0.5f,
+            (WIN_HEIGHT - imgH * scale) * 0.5f,
+            imgW * scale,
+            imgH * scale
+        };
+
+        // 3. Render
+        SDL_RenderClear(ren);
+        SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
+        SDL_RenderPresent(ren);
+    }
+
+    void Game::waitMainLoop() {
+        bool waitKeyRelease = false;
+
+        while (!appQuit) {
+            SDL_PumpEvents();
+            int keyCount = 0;
+            const bool *keys = SDL_GetKeyboardState(&keyCount);
+
+            if (waitKeyRelease) {
+                if (anyKeyStillDown(keys, keyCount)) {
+                    showScreen(ui);
+                    pace_frame();
+                    continue;
+                }
+                waitKeyRelease = false;
+            }
+
+            const UIScreen prev = ui;
+            bool startGame = false; // s
+
+            switch (ui) {
+                case UIScreen::Main: handleMainKeys(keys);
+                    break;
+                case UIScreen::Instructions: handleInstructionsKeys(keys);
+                    break;
+                case UIScreen::GameModes: handleGameModeKeys(keys);
+                    break;
+                case UIScreen::Players: startGame = handlePlayersKeys(keys);
+                    break;
+                default:
+                    break;
+            }
+
+            if (ui != prev)
+                waitKeyRelease = true;
+
+            showScreen(ui);
+            pace_frame();
+
+            if (startGame)
+                return;
+
+            if (keys[SDL_SCANCODE_ESCAPE])
+                appQuit = true;
+            windowClosedClicked();
+        }
+    }
+
+    void Game::launch() {
+        while (!appQuit) {
+            waitMainLoop();
+            if (appQuit)
+                break;
+
+            run();
+        }
+    }
+
     Game::Game() {
         if (!prepareWindowAndTexture())
             return;
+// todo move to prep funciton
+        uiTex[static_cast<int>(UIScreen::Main)] = loadTex(ren, "res/bg_mainMenu.png");
+        uiTex[static_cast<int>(UIScreen::Instructions)] = loadTex(ren, "res/bg_instructions.png");
+        uiTex[static_cast<int>(UIScreen::GameModes)] = loadTex(ren, "res/bg_GameModeMenu.png");
+        uiTex[static_cast<int>(UIScreen::Players)] = loadTex(ren, "res/bg_players.png");
+
         SDL_srand(time(nullptr));
 
         prepareBoxWorld();
@@ -736,6 +892,10 @@ namespace game {
     }
 
     Game::~Game() {
+        for (const auto &i: uiTex)
+            if (i)
+                SDL_DestroyTexture(i);
+
         if (b2World_IsValid(boxWorld))
             b2DestroyWorld(boxWorld);
         if (tex != nullptr)
@@ -756,19 +916,13 @@ namespace game {
         SDL_Quit();
     }
 
-
-    void Game::run() const {
+    void Game::run() {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
-        //todo : ask moshe about this class since i dont really understand it
-        // as you ca see there is this class InputSystem and there is a system called input_system()
-
-        // InputSystem is;
         bool quit = false;
-        while (!quit) {
-            World::step(); //finally World::step() to clear added() array
-
-            // Handle input based on game state
+        bool gameExitToMenu = false;
+        while (!gameExitToMenu && !appQuit) {
+            World::step();
             const_cast<Game*>(this)->handle_game_state_input();
 
             // Only run game systems when playing
@@ -782,10 +936,10 @@ namespace game {
                 const_cast<Game*>(this)->score_system();
                 cleanup_collision_system();
             }
-
             draw_system();
 
             pace_frame();
+            windowClosedClicked();
             quit = shouldQuit;
         }
     }
