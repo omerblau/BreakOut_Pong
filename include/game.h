@@ -12,16 +12,17 @@ using namespace bagel;
 namespace game {
 
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
-    using Transform    = struct { SDL_FPoint p; float a; };
+    using Transform    = struct { SDL_FPoint p; float angle; };
     using Drawable     = struct {SDL_FRect part; SDL_FPoint size; };
     using ChangePart   = struct {brick_coords coords;};
     using Intent       = struct { bool up, down, tilt_down, tilt_up; };
     using Keys         = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
-    using Collider     = struct { b2BodyId b; };
+    using Collider     = struct { b2BodyId body; };
     using Scorer       = struct { b2ShapeId s; };
     using IsCollision  = struct {};
     using Breakable    = struct {};
     using Goal         = struct {bool left, right;};
+    using Ball         = struct {};
 
     enum class GameState {
         PLAYING,

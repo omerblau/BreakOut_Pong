@@ -397,11 +397,11 @@ namespace game {
                 const auto &c = World::getComponent<Collider>(e);
 
                 const float f = i.up ? -PAD_MOVE : i.down ? PAD_MOVE : 0.f;
-                b2Body_SetLinearVelocity(c.b, {0, f});
+                b2Body_SetLinearVelocity(c.body, {0, f});
 
                 /* smooth tilting – keeps rotating while key is held */
                 float angVel = (i.tilt_up ? -PAD_TILT : (i.tilt_down ? PAD_TILT : 0.f)) * DEG_TO_RAD;
-                b2Body_SetAngularVelocity(c.b, angVel);
+                b2Body_SetAngularVelocity(c.body, angVel);
             }
         }
     }
@@ -499,7 +499,7 @@ namespace game {
                 c.coords.idx++;
                 if (c.coords.idx >= NUM_BRICK_STATE) {
                     // destroy the brick
-                    b2BodyId body = World::getComponent<Collider>(e).b;
+                    b2BodyId body = World::getComponent<Collider>(e).body;
                     if (b2Body_IsValid(body)) {
                         b2DestroyBody(body);
                         World::destroyEntity(e);
@@ -623,7 +623,7 @@ namespace game {
             if (!World::mask(e).test(colliderMask)) continue;
             if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
 
-            const b2BodyId b = World::getComponent<Collider>(e).b;
+            const b2BodyId b = World::getComponent<Collider>(e).body;
             if (b2Body_GetType(b) != b2_dynamicBody) continue; // bricks/walls
 
             auto [x, y] = b2Body_GetLinearVelocity(b);
