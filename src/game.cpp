@@ -454,31 +454,54 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
-    void Game::collision_detector_system() const {
+    // void Game::collision_detector_system() const {
+    //     static const Mask mask = MaskBuilder()
+    //             .set<Collider>()
+    //             .build();
+    //     const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
+    //     for (int i = 0; i < events.beginCount; ++i) {
+    //         std::cout << "Collision detected between: " << std::endl;
+    //         b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+    //         b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+    //
+    //         void* userData1 = b2Body_GetUserData(e1);
+    //         void* userData2 = b2Body_GetUserData(e2);
+    //
+    //         if (userData1) {
+    //             ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
+    //             if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
+    //                 World::addComponent(entity1, IsCollision{});
+    //             }
+    //         }
+    //
+    //         if (userData2) {
+    //             ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
+    //             if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
+    //                 World::addComponent(entity2, IsCollision{});
+    //             }
+    //         }
+    //     }
+    // }
+
+    void Game::collision_detector_system () const {
         static const Mask mask = MaskBuilder()
                 .set<Collider>()
                 .build();
-        const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
+        const b2ContactEvents& events = b2World_GetContactEvents(boxWorld);
         for (int i = 0; i < events.beginCount; ++i) {
             std::cout << "Collision detected between: " << std::endl;
             b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
             b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
 
-            void* userData1 = b2Body_GetUserData(e1);
-            void* userData2 = b2Body_GetUserData(e2);
-
-            if (userData1) {
-                ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
-                if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
-                    World::addComponent(entity1, IsCollision{});
-                }
-            }
-
-            if (userData2) {
-                ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
-                if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
-                    World::addComponent(entity2, IsCollision{});
-                }
+            auto *visitor1 = static_cast<ent_type*>(b2Body_GetUserData(e1));
+            cout << "Entity 1: " << (visitor1 ? std::to_string(visitor1->id) : "null") << std::endl;
+            auto *visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+            cout << "Entity 2: " << (visitor2 ? std::to_string(visitor2->id) : "null") << std::endl;
+            if (visitor1 && World::mask(*visitor1).test(mask))
+                World::addComponent(*visitor1, IsCollision{});
+            if (visitor2 && World::mask(*visitor2).test(mask)) {
+                visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+                World::addComponent(*visitor2, IsCollision{});
             }
         }
     }
