@@ -1,4 +1,4 @@
-// This is the newgame.cpp file
+// This is game.cpp file
 
 #include "../include/game.h"
 
@@ -15,14 +15,18 @@ using namespace bagel;
 
 namespace game {
     bool Game::valid() const {
-        return tex != nullptr;
+        return tex != nullptr && bgTex != nullptr && pauseTex != nullptr &&
+               leftWinTex != nullptr && rightWinTex != nullptr;
     }
 
     void Game::createBall() const {
         b2BodyDef ballBodyDef = b2DefaultBodyDef();
         ballBodyDef.type = b2_dynamicBody;
         ballBodyDef.fixedRotation = false;
-        ballBodyDef.position = {WIN_WIDTH / 2 / BOX_SCALE, WIN_HEIGHT / 2 / BOX_SCALE};
+        ballBodyDef.position = {
+            static_cast<int>(WIN_WIDTH / 2) / BOX_SCALE,
+            static_cast<int>(WIN_HEIGHT / 2) / BOX_SCALE
+        };
 
         b2ShapeDef ballShapeDef = b2DefaultShapeDef();
         ballShapeDef.enableSensorEvents = true;
@@ -30,7 +34,10 @@ namespace game {
         ballShapeDef.density = 1;
         ballShapeDef.material.friction = 0;
         ballShapeDef.material.restitution = 1.0f;
-        b2Circle ballCircle = {0, 0, BALL_COORDS.w * BALL_TEX_SCALE / BOX_SCALE / 2};
+        b2Circle ballCircle = {
+            0, 0,
+            BALL_COORDS.w * BALL_TEX_SCALE / BOX_SCALE / 2
+        };
 
         b2BodyId ballBody = b2CreateBody(boxWorld, &ballBodyDef);
         b2CreateCircleShape(ballBody, &ballShapeDef, &ballCircle);
@@ -44,8 +51,15 @@ namespace game {
         Entity ballEntity = Entity::create();
         ballEntity.addAll(
             Transform{{}, 0},
-            Drawable{BALL_COORDS, {BALL_COORDS.w * BALL_TEX_SCALE, BALL_COORDS.h * BALL_TEX_SCALE}},
-            Collider{ballBody}
+            Drawable{
+                BALL_COORDS,
+                {
+                    BALL_COORDS.w * BALL_TEX_SCALE,
+                    BALL_COORDS.h * BALL_TEX_SCALE
+                }
+            },
+            Collider{ballBody},
+            Ball{}
         );
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
@@ -56,19 +70,18 @@ namespace game {
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
         const b2BodyId padBody = b2CreateBody(boxWorld, &padBodyDef);
 
-        constexpr float angleRad = 90.0f / RAD_TO_DEG;
+        constexpr float angleRad = 90.0f * DEG_TO_RAD;
         const b2Rot rot = {std::cos(angleRad), std::sin(angleRad)};
         b2Body_SetTransform(padBody, padBodyDef.position, rot);
 
         b2ShapeDef padShapeDef = b2DefaultShapeDef();
         padShapeDef.density = 0;
-        padShapeDef.enableContactEvents = true;
 
         const b2Polygon padBox = b2MakeBox(
             r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
             r.h * PAD_TEX_SCALE / BOX_SCALE / 2);
         b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
-        Entity padEntity = Entity::create();
+        const Entity padEntity = Entity::create();
         padEntity.addAll(
             Transform{{}, 0},
             Drawable{r, {r.w * PAD_TEX_SCALE, r.h * PAD_TEX_SCALE}},
@@ -80,17 +93,18 @@ namespace game {
     }
 
     void Game::createPads() const {
-        createPad(PAD_COORDS, {PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
                       SDL_SCANCODE_W,
                       SDL_SCANCODE_S,
                       SDL_SCANCODE_D,
                       SDL_SCANCODE_A
                   });
-        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, WIN_HEIGHT / 2}, {
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
                       SDL_SCANCODE_UP,
                       SDL_SCANCODE_DOWN,
+                      SDL_SCANCODE_RIGHT,
                       SDL_SCANCODE_LEFT,
-                      SDL_SCANCODE_RIGHT
+
                   });
     }
 
@@ -141,7 +155,7 @@ namespace game {
     }
 
     void Game::placeBricks() const {
-        constexpr int cols =3;
+        constexpr int cols = 3;
         constexpr int rows = 18;
         constexpr int top_margin = 20;
         constexpr int side_margin = 20;
@@ -157,7 +171,7 @@ namespace game {
                     side_margin + static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos, r+c);
+                createBrick(pos, r + c);
             }
         }
 
@@ -168,7 +182,7 @@ namespace game {
                     WIN_WIDTH - side_margin - static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos, r+2-c);
+                createBrick(pos, r + 2 - c);
             }
         }
     }
@@ -182,12 +196,16 @@ namespace game {
         if (!SDL_CreateWindowAndRenderer(
             "Breakout Pong", WIN_WIDTH, WIN_HEIGHT, 0, &win, &ren)) {
             cout << SDL_GetError() << endl;
+            SDL_Quit();
             return false;
         }
 
         bgTex = IMG_LoadTexture(ren, "res/bg.png");
         if (!bgTex) {
             std::cerr << "IMG_LoadTexture Error: " << SDL_GetError() << "\n";
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
 
@@ -195,16 +213,64 @@ namespace game {
         SDL_Surface *surf = IMG_Load("res/spritesheet.png");
         if (surf == nullptr) {
             cout << SDL_GetError() << endl;
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
 
         tex = SDL_CreateTextureFromSurface(ren, surf);
+        SDL_DestroySurface(surf);
+
         if (tex == nullptr) {
             cout << SDL_GetError() << endl;
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
             return false;
         }
 
-        SDL_DestroySurface(surf);
+        // Load pause texture
+        pauseTex = IMG_LoadTexture(ren, "res/pause.png");
+        if (!pauseTex) {
+            std::cerr << "Failed to load pause.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
+        // Load left win texture
+        leftWinTex = IMG_LoadTexture(ren, "res/left_win.png");
+        if (!leftWinTex) {
+            std::cerr << "Failed to load left_win.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(pauseTex);
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
+        // Load right win texture
+        rightWinTex = IMG_LoadTexture(ren, "res/right_win.png");
+        if (!rightWinTex) {
+            std::cerr << "Failed to load right_win.png: " << SDL_GetError() << "\n";
+            SDL_DestroyTexture(leftWinTex);
+            SDL_DestroyTexture(pauseTex);
+            SDL_DestroyTexture(tex);
+            SDL_DestroyTexture(bgTex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return false;
+        }
+
         return true;
     }
 
@@ -235,13 +301,12 @@ namespace game {
             wallEntity.addAll(
                 Transform{{cx * BOX_SCALE, cy * BOX_SCALE}, 0},
                 Collider{body},
-                Goal{ isLeft , !isLeft}
+                Goal{isLeft, !isLeft}
             );
             b2Body_SetUserData(body, new ent_type{wallEntity.entity()});
             cout.flush();
             cout << "Created wall at (" << cx << ", " << cy << ") with Goal: "
-                 << (isLeft ? "Left" : "Right") << " entity number is: " << wallEntity.entity().id << std::endl;
-
+                    << (isLeft ? "Left" : "Right") << " entity number is: " << wallEntity.entity().id << std::endl;
         };
 
         /* ---------- 2. Small helper to spawn one wall (Box2D only) ---------- */
@@ -282,13 +347,18 @@ namespace game {
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
-                b2Transform t = b2Body_GetTransform(World::getComponent<Collider>(e).b);
+                b2Transform t = b2Body_GetTransform(World::getComponent<Collider>(e).body);
                 World::getComponent<Transform>(e) = {
                     {t.p.x * BOX_SCALE, t.p.y * BOX_SCALE},
                     RAD_TO_DEG * b2Rot_GetAngle(t.q)
                 };
             }
         }
+    }
+
+    void Game::constraints_system() const {
+        paddle_bounds();
+        ball_speed_cap();
     }
 
     void Game::input_system() const {
@@ -318,15 +388,20 @@ namespace game {
                 .set<Intent>()
                 .set<Collider>()
                 .build();
-        //todo : block the paddels from going through the floor and ceiling
+        //todo : block the paddles from going through the floor and ceiling
         // also adding the tilting on tilt_up / tilt_down
+
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (World::mask(e).test(mask)) {
                 const auto &i = World::getComponent<Intent>(e);
                 const auto &c = World::getComponent<Collider>(e);
 
-                const float f = i.up ? -5 : i.down ? 5 : 0;
-                b2Body_SetLinearVelocity(c.b, {0, f});
+                const float f = i.up ? -PAD_MOVE : i.down ? PAD_MOVE : 0.f;
+                b2Body_SetLinearVelocity(c.body, {0, f});
+
+                /* smooth tilting – keeps rotating while key is held */
+                float angVel = (i.tilt_up ? -PAD_TILT : (i.tilt_down ? PAD_TILT : 0.f)) * DEG_TO_RAD;
+                b2Body_SetAngularVelocity(c.body, angVel);
             }
         }
     }
@@ -338,28 +413,75 @@ namespace game {
                 .build();
 
         SDL_RenderClear(ren);
-        SDL_RenderTexture(ren, bgTex, nullptr, nullptr);
 
+        // Draw game elements only if playing
+        if (gameState == GameState::PLAYING || gameState == GameState::PAUSED) {
+            SDL_RenderTexture(ren, bgTex, nullptr, nullptr);
 
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(mask)) {
-                const auto &d = World::getComponent<Drawable>(e);
-                const auto &t = World::getComponent<Transform>(e);
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(mask)) {
+                    const auto &d = World::getComponent<Drawable>(e);
+                    const auto &t = World::getComponent<Transform>(e);
 
-                const SDL_FRect dst = {
-                    t.p.x - d.size.x / 2,
-                    t.p.y - d.size.y / 2,
-                    d.size.x, d.size.y
-                };
+                    const SDL_FRect dst = {
+                        t.p.x - d.size.x / 2,
+                        t.p.y - d.size.y / 2,
+                        d.size.x, d.size.y
+                    };
 
-                SDL_RenderTextureRotated(
-                    ren, tex, &d.part, &dst, t.a,
-                    nullptr, SDL_FLIP_NONE);
+                    SDL_RenderTextureRotated(
+                        ren, tex, &d.part, &dst, t.angle,
+                        nullptr, SDL_FLIP_NONE);
+                }
             }
+        }
+
+        // Draw overlay screens
+        switch (gameState) {
+            case GameState::PAUSED:
+                SDL_RenderTexture(ren, pauseTex, nullptr, nullptr);
+                break;
+            case GameState::LEFT_WIN:
+                SDL_RenderTexture(ren, leftWinTex, nullptr, nullptr);
+                break;
+            case GameState::RIGHT_WIN:
+                SDL_RenderTexture(ren, rightWinTex, nullptr, nullptr);
+                break;
+            default:
+                break;
         }
 
         SDL_RenderPresent(ren);
     }
+
+    // void Game::collision_detector_system() const {
+    //     static const Mask mask = MaskBuilder()
+    //             .set<Collider>()
+    //             .build();
+    //     const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
+    //     for (int i = 0; i < events.beginCount; ++i) {
+    //         std::cout << "Collision detected between: " << std::endl;
+    //         b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+    //         b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+    //
+    //         void* userData1 = b2Body_GetUserData(e1);
+    //         void* userData2 = b2Body_GetUserData(e2);
+    //
+    //         if (userData1) {
+    //             ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
+    //             if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
+    //                 World::addComponent(entity1, IsCollision{});
+    //             }
+    //         }
+    //
+    //         if (userData2) {
+    //             ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
+    //             if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
+    //                 World::addComponent(entity2, IsCollision{});
+    //             }
+    //         }
+    //     }
+    // }
 
 
     void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const {
@@ -446,14 +568,14 @@ namespace game {
 
 
 
-    void Game::brick_system () const {
+    void Game::brick_system() const {
         static const Mask mask = MaskBuilder()
-            .set<Breakable>()
-            .set<IsCollision>()
-            .set<ChangePart>()
-            .set<Drawable>()
-            .set<Collider>()
-            .build();
+                .set<Breakable>()
+                .set<IsCollision>()
+                .set<ChangePart>()
+                .set<Drawable>()
+                .set<Collider>()
+                .build();
 
 
         static int bricksBroken = 0;
@@ -468,18 +590,15 @@ namespace game {
                 c.coords.idx++;
                 if (c.coords.idx >= NUM_BRICK_STATE) {
                     // destroy the brick
-                    b2BodyId body = World::getComponent<Collider>(e).b;
+                    b2BodyId body = World::getComponent<Collider>(e).body;
                     if (b2Body_IsValid(body)) {
 
-                        // cashes:
 
-                        //b2DestroyBody(body);
-                        //World::destroyEntity(e);
+
+                        b2DestroyBody(body);
+                        World::destroyEntity(e);
                     }
-
-                }
-
-                else {
+                } else {
                     // change the part of the brick
                     World::delComponent<IsCollision>(e);
                     World::getComponent<Drawable>(e) = {
@@ -590,26 +709,376 @@ namespace game {
             .set<IsCollision>()
             .set<Goal>()
             .build();
-
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(mask)) {
-                auto &winner = World::getComponent<Goal>(e);
-                if (winner.left) {
-                    std::cout << "Left player scored!" << std::endl;
-                } else {
-                    std::cout << "Right player scored!" << std::endl;
                 }
-
             }
         }
     }
 
+    void Game::score_system() {
+        static const Mask goalMask = MaskBuilder()
+                .set<IsCollision>()
+                .set<Goal>()
+                .build();
 
+        static const Mask ballMask = MaskBuilder()
+                .set<Ball>()
+                .set<Collider>()
+                .build();
 
+        bool scored = false;
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(goalMask)) {
+                auto &winner = World::getComponent<Goal>(e);
+                if (winner.left) {
+                    std::cout << "Right player scored!" << std::endl;
+                    gameState = GameState::RIGHT_WIN;
+                } else {
+                    std::cout << "Left player scored!" << std::endl;
+                    gameState = GameState::LEFT_WIN;
+                }
+                scored = true;
+            }
+        }
+
+        // Don't respawn ball immediately when someone wins
+    }
+
+    void Game::cleanup_collision_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<IsCollision>()
+                .build();
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(mask)) {
+                World::delComponent<IsCollision>(e);
+            }
+        }
+    }
+
+    void Game::paddle_bounds() const {
+        static const Mask paddleMask = MaskBuilder()
+                .set<Collider>()
+                .set<Intent>() // only paddles have Intent
+                .build();
+
+        /* ─ constants (shared across frames) ─ */
+        constexpr float HALF_W_M = (PAD_COORDS.w * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
+        constexpr float HALF_H_M = (PAD_COORDS.h * PAD_TEX_SCALE) / BOX_SCALE / 2.0f;
+        constexpr float WORLD_H = WIN_HEIGHT / BOX_SCALE;
+
+        constexpr float BASE = 90.0f * DEG_TO_RAD; // vertical
+        constexpr float MAX_OFF = 45.0f * DEG_TO_RAD;
+        constexpr float MIN_TILT = BASE - MAX_OFF; // 45°
+        constexpr float MAX_TILT = BASE + MAX_OFF; // 135°
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(paddleMask)) continue;
+
+            const b2BodyId b = World::getComponent<Collider>(e).body;
+            auto [p, q] = b2Body_GetTransform(b);
+            b2Vec2 pos = p;
+            float ang = b2Rot_GetAngle(q);
+
+            /* dynamic half-height in world Y */
+            const float cy = std::cos(ang);
+            const float sy = std::sin(ang);
+            const float halfY = std::fabs(cy) * HALF_H_M + std::fabs(sy) * HALF_W_M;
+
+            /* Y clamp */
+            bool yHit = false;
+            if (pos.y - halfY < 0.f) {
+                pos.y = halfY;
+                yHit = true;
+            }
+            if (pos.y + halfY > WORLD_H) {
+                pos.y = WORLD_H - halfY;
+                yHit = true;
+            }
+            if (yHit) {
+                b2Body_SetTransform(b, pos, q);
+                b2Body_SetLinearVelocity(b, {0.f, 0.f});
+                p = pos;
+            }
+
+            /* angle clamp */
+            if (const float fixed = std::clamp(ang, MIN_TILT, MAX_TILT); fixed != ang) {
+                const b2Rot r{std::cos(fixed), std::sin(fixed)};
+                b2Body_SetTransform(b, p, r);
+                b2Body_SetAngularVelocity(b, 0.f);
+            }
+        }
+    }
+
+    void Game::ball_speed_cap() const {
+        static const Mask colliderMask = MaskBuilder()
+                .set<Collider>()
+                .build();
+
+        constexpr float MAX_MPS = 10.0f;
+        constexpr float MAX_V2 = MAX_MPS * MAX_MPS;
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(colliderMask)) continue;
+            if (World::mask(e).test(Component<Intent>::Bit)) continue; // skip paddles
+
+            const b2BodyId b = World::getComponent<Collider>(e).body;
+            if (b2Body_GetType(b) != b2_dynamicBody) continue; // bricks/walls
+
+            auto [x, y] = b2Body_GetLinearVelocity(b);
+            if (const float v2 = x * x + y * y; v2 > MAX_V2) {
+                const float scale = MAX_MPS / SDL_sqrtf(v2);
+                b2Body_SetLinearVelocity(b, {x * scale, y * scale});
+            }
+        }
+    }
+
+    bool Game::poll_quit() const {
+        // This is now just a flag check, actual polling happens in handle_game_state_input
+        return false;
+    }
+
+    void Game::windowClosedClicked() {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT)
+                appQuit = true;
+        }
+    }
+
+    void Game::handle_game_state_input() {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT ||
+                (e.type == SDL_EVENT_KEY_DOWN &&
+                 e.key.scancode == SDL_SCANCODE_ESCAPE)) {
+                // Set a quit flag that will be checked by poll_quit
+                const_cast<Game*>(this)->shouldQuit = true;
+                continue;
+            }
+
+            if (e.type == SDL_EVENT_KEY_DOWN) {
+                switch (gameState) {
+                    case GameState::PLAYING:
+                        if (e.key.scancode == SDL_SCANCODE_P) {
+                            gameState = GameState::PAUSED;
+                        }
+                        break;
+
+                    case GameState::PAUSED:
+                        if (e.key.scancode == SDL_SCANCODE_P) {
+                            gameState = GameState::PLAYING;
+                        } else if (e.key.scancode == SDL_SCANCODE_N) {
+                            reset_game();
+                            gameState = GameState::PLAYING;
+                        }
+                        break;
+
+                    case GameState::LEFT_WIN:
+                    case GameState::RIGHT_WIN:
+                        if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
+                            reset_game();
+                            gameState = GameState::PLAYING;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    void Game::destroy_all_entities() {
+        // Destroy all entities with colliders first
+        static const Mask colliderMask = MaskBuilder()
+                .set<Collider>()
+                .build();
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(colliderMask)) {
+                b2BodyId body = World::getComponent<Collider>(e).body;
+                if (b2Body_IsValid(body)) {
+                    b2DestroyBody(body);
+                }
+            }
+        }
+
+        // Destroy all entities
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            World::destroyEntity(e);
+        }
+    }
+
+    void Game::reset_game() {
+        // Destroy all game entities
+        destroy_all_entities();
+
+        // Recreate the game world
+        prepareWalls();
+        createBall();
+        createPads();
+        placeBricks();
+    }
+
+    void Game::pace_frame() const {
+        static Uint32 frameStart = SDL_GetTicks();
+        const Uint64 frameEnd = SDL_GetTicks();
+        const Uint64 elapsed = frameEnd - frameStart;
+        if (elapsed)
+            SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
+        frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
+    }
+
+    /// menus
+    SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
+        SDL_Texture *tx = IMG_LoadTexture(r, file);
+        if (!tx)
+            std::cerr << "IMG_LoadTexture error (" << file << "): "
+                    << SDL_GetError() << '\n';
+        return tx;
+    }
+
+    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
+        for (int i = 0; i < keyCount; ++i)
+            if (keys[i]) return true;
+        return false;
+    }
+
+    void Game::handleMainKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
+            ui = UIScreen::GameModes;
+        else if (keys[SDL_SCANCODE_2])
+            ui = UIScreen::Instructions;
+
+    }
+
+    void Game::handleInstructionsKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1])
+            ui = UIScreen::Main;
+    }
+
+    void Game::handleGameModeKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
+            mode = GameMode::FirstGoal;
+            ui = UIScreen::Players;
+        } else if (keys[SDL_SCANCODE_2]) {
+            mode = GameMode::BreakAll;
+            ui = UIScreen::Players;
+        } else if (keys[SDL_SCANCODE_3]) {
+            ui = UIScreen::Main;
+        }
+    }
+
+    bool Game::handlePlayersKeys(const bool *keys) {
+        if (keys[SDL_SCANCODE_1]) {
+            players = PlayerSide::Single;
+            return true;
+        }
+        if (keys[SDL_SCANCODE_2]) {
+            players = PlayerSide::Two;
+            return true;
+        }
+        if (keys[SDL_SCANCODE_3])
+            ui = UIScreen::GameModes;
+        else if (keys[SDL_SCANCODE_M])
+            ui = UIScreen::Main;
+        return false;
+    }
+
+    void Game::showScreen(UIScreen s) const {
+        // 1. Fetch texture size
+        float imgW{}, imgH{};
+        if (!uiTex[static_cast<int>(s)] ||
+            !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
+            std::cerr << "showScreen: texture missing or size query failed for state "
+                    << static_cast<int>(s) << " – " << SDL_GetError() << '\n';
+            return;
+        }
+
+        // 2. “Cover” scale so the window fills without distortion
+        const float scale = std::max(WIN_WIDTH / imgW,
+                                     WIN_HEIGHT / imgH);
+
+        const SDL_FRect dst{
+            (WIN_WIDTH - imgW * scale) * 0.5f,
+            (WIN_HEIGHT - imgH * scale) * 0.5f,
+            imgW * scale,
+            imgH * scale
+        };
+
+        // 3. Render
+        SDL_RenderClear(ren);
+        SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
+        SDL_RenderPresent(ren);
+    }
+
+    void Game::waitMainLoop() {
+        bool waitKeyRelease = false;
+
+        while (!appQuit) {
+            SDL_PumpEvents();
+            int keyCount = 0;
+            const bool *keys = SDL_GetKeyboardState(&keyCount);
+
+            if (waitKeyRelease) {
+                if (anyKeyStillDown(keys, keyCount)) {
+                    showScreen(ui);
+                    pace_frame();
+                    continue;
+                }
+                waitKeyRelease = false;
+            }
+
+            const UIScreen prev = ui;
+            bool startGame = false; // s
+
+            switch (ui) {
+                case UIScreen::Main: handleMainKeys(keys);
+                    break;
+                case UIScreen::Instructions: handleInstructionsKeys(keys);
+                    break;
+                case UIScreen::GameModes: handleGameModeKeys(keys);
+                    break;
+                case UIScreen::Players: startGame = handlePlayersKeys(keys);
+                    break;
+                default:
+                    break;
+            }
+
+            if (ui != prev)
+                waitKeyRelease = true;
+
+            showScreen(ui);
+            pace_frame();
+
+            if (startGame)
+                return;
+
+            if (keys[SDL_SCANCODE_ESCAPE])
+                appQuit = true;
+            windowClosedClicked();
+        }
+    }
+
+    void Game::launch() {
+        while (!appQuit) {
+            waitMainLoop();
+            if (appQuit)
+                break;
+
+            run();
+        }
+    }
 
     Game::Game() {
         if (!prepareWindowAndTexture())
             return;
+// todo move to prep funciton
+        uiTex[static_cast<int>(UIScreen::Main)] = loadTex(ren, "res/bg_mainMenu.png");
+        uiTex[static_cast<int>(UIScreen::Instructions)] = loadTex(ren, "res/bg_instructions.png");
+        uiTex[static_cast<int>(UIScreen::GameModes)] = loadTex(ren, "res/bg_GameModeMenu.png");
+        uiTex[static_cast<int>(UIScreen::Players)] = loadTex(ren, "res/bg_players.png");
+
         SDL_srand(time(nullptr));
 
         prepareBoxWorld();
@@ -620,10 +1089,22 @@ namespace game {
     }
 
     Game::~Game() {
+        for (const auto &i: uiTex)
+            if (i)
+                SDL_DestroyTexture(i);
+
         if (b2World_IsValid(boxWorld))
             b2DestroyWorld(boxWorld);
         if (tex != nullptr)
             SDL_DestroyTexture(tex);
+        if (bgTex != nullptr)
+            SDL_DestroyTexture(bgTex);
+        if (pauseTex != nullptr)
+            SDL_DestroyTexture(pauseTex);
+        if (leftWinTex != nullptr)
+            SDL_DestroyTexture(leftWinTex);
+        if (rightWinTex != nullptr)
+            SDL_DestroyTexture(rightWinTex);
         if (ren != nullptr)
             SDL_DestroyRenderer(ren);
         if (win != nullptr)
@@ -632,25 +1113,26 @@ namespace game {
         SDL_Quit();
     }
 
-    void Game::run() const {
+    void Game::run() {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-        auto start = SDL_GetTicks();
+
         bool quit = false;
-
-        //todo : ask moshe about this class since i dont really understand it
-        // as you ca see there is this class InputSystem and there is a system called input_system()
-
-        // InputSystem is;
-        while (!quit) {
-            //is.updateEntities();
-            //first updateEntities() for all systems
-
-            //is.update();
-            //then update() for all systems
-
+        bool gameExitToMenu = false;
+        while (!gameExitToMenu && !appQuit) {
             World::step();
-            //finally World::step() to clear added() array
+            const_cast<Game*>(this)->handle_game_state_input();
 
+            // Only run game systems when playing
+            if (gameState == GameState::PLAYING) {
+                input_system();
+                move_system();
+                box_system();
+                constraints_system();
+                collision_detector_system();
+                brick_system();
+                const_cast<Game*>(this)->score_system();
+                cleanup_collision_system();
+            }
             input_system();
             move_system();
 
@@ -666,20 +1148,9 @@ namespace game {
             // todo: implement reset on all bricks lost (maybe?)
             draw_system();
 
-            const auto end = SDL_GetTicks();
-            if (const auto elapsed = end - start) {
-                SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-            }
-            start += static_cast<Uint64>(GAME_FRAME);
-
-            // todo : move this in to the input system
-            SDL_Event e;
-            while (SDL_PollEvent(&e)) {
-                if (e.type == SDL_EVENT_QUIT)
-                    quit = true;
-                else if ((e.type == SDL_EVENT_KEY_DOWN) && (e.key.scancode == SDL_SCANCODE_ESCAPE))
-                    quit = true;
-            }
+            pace_frame();
+            windowClosedClicked();
+            quit = shouldQuit;
         }
     }
 }
