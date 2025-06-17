@@ -62,6 +62,7 @@ namespace game {
 
         b2ShapeDef padShapeDef = b2DefaultShapeDef();
         padShapeDef.density = 0;
+        padShapeDef.enableContactEvents = true;
 
         const b2Polygon padBox = b2MakeBox(
             r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
@@ -370,11 +371,14 @@ namespace game {
 
         b2ShapeDef sd = b2DefaultShapeDef();
         sd.isSensor   = true;               // collect only, no collision response
+        sd.enableContactEvents = true;
+        sd.enableSensorEvents = true;
         b2Polygon box = b2MakeBox(20 / BOX_SCALE, 20 / BOX_SCALE);
         b2CreatePolygonShape(b, &sd, &box);
 
         /* -------- choose horizontal direction -------- */
         float vx = (pos.x > WIN_WIDTH / 2) ? -PU_SPEED_PPS :  PU_SPEED_PPS;
+        bool side = (pos.x <= WIN_WIDTH / 2);
 
         // 2. entity
         Entity e = Entity::create();
@@ -383,7 +387,7 @@ namespace game {
             Drawable{ r, { 40, 40 } },   // use heart sprite
             Collider{ b },
             EnlargePU{},
-            Falling{vx,0}
+            Falling{vx,side}
         );
         b2Body_SetUserData(b, new ent_type{e.entity()});
 
@@ -412,8 +416,35 @@ namespace game {
                 visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
                 World::addComponent(*visitor2, IsCollision{});
             }
+
+
+
+
+
+
+
+            // --- הוספת טאג ספציפי לאיסוף Power-Up ---
+            bool e1IsPad = e1.isValid() && World::mask(e1).test(PAD_MASK);
+            bool e2IsPad = e2.isValid() && World::mask(e2).test(PAD_MASK);
+
+            bool e1IsPowerUp = e1.isValid() && World::mask(e1).test(POWER_UP_ANY_TYPE_MASK);
+            bool e2IsPowerUp = e2.isValid() && World::mask(e2).test(POWER_UP_ANY_TYPE_MASK);
+
+            // תרחיש 1: e1 היא מטקה, e2 הוא Power-Up
+            if (e1IsPad && e2IsPowerUp) {
+                std::cout << "Pad " << e1.id << " collected Power-Up " << e2.id << std::endl;
+                World::addComponent(e1, PadCollectedPowerUp{e2}); // תייג את המטקה ברכיב החדש
+            }
+            // תרחיש 2: e2 היא מטקה, e1 הוא Power-Up
+            else if (e2IsPad && e1IsPowerUp) {
+                std::cout << "Pad " << e2.id << " collected Power-Up " << e1.id << std::endl;
+                World::addComponent(e2, PadCollectedPowerUp{e1}); // תייג את המטקה ברכיב החדש
+            }
         }
     }
+
+
+
 
     void Game::brick_system () const {
         static const Mask mask = MaskBuilder()
@@ -496,42 +527,43 @@ namespace game {
     }
 
 
+
     void Game::powerup_collision_system() const {
-        static const Mask padM = MaskBuilder().set<Collider>().set<Drawable>().build();
-        static const Mask puM  = MaskBuilder().set<Falling>().set<Collider>().build();
+        static const Mask padM = MaskBuilder()
+            .set<Collider>()
+            .set<Drawable>()
+            .set<IsCollision>()
+            .build();
+
+        static const Mask puM = MaskBuilder()
+            .set<Falling>()
+            .set<Collider>()
+            .set<IsCollision>()
+            .build();
 
         const b2ContactEvents& ev = b2World_GetContactEvents(boxWorld);
 
-        for (int i = 0; i < ev.beginCount; ++i) {
-            b2BodyId a = b2Shape_GetBody(ev.beginEvents[i].shapeIdA);
-            b2BodyId b = b2Shape_GetBody(ev.beginEvents[i].shapeIdB);
+        // מעבד גם beginEvents וגם beginSensorEvents
+        auto handleEvent = [&](b2ShapeId sa, b2ShapeId sb) {
+            b2BodyId a = b2Shape_GetBody(sa);
+            b2BodyId b = b2Shape_GetBody(sb);
 
             auto* ea = static_cast<ent_type*>(b2Body_GetUserData(a));
             auto* eb = static_cast<ent_type*>(b2Body_GetUserData(b));
-            if (!ea || !eb) continue;
+            if (!ea || !eb) return;
 
-            auto handle = [&](ent_type pad, ent_type pu) {
-                if (!World::mask(pad).test(padM) || !World::mask(pu).test(puM)) return;
+            // בדוק שני הכיוונים – אחת המטקה ואחת ה־PU
+            for (auto [pad, pu] : std::array<std::pair<ent_type*, ent_type*>, 2>{{{ea, eb}, {eb, ea}}}) {
+                if (!World::mask(*pad).test(padM)) continue;
+                if (!World::mask(*pu).test(puM)) continue;
 
-                // enlarge drawable + collider
-                auto& dr = World::getComponent<Drawable>(pad);
-                //SDL_FPoint newSize = { dr.size.x, dr.size.y * PAD_ENLARGE_F };
-                //World::addComponent(pad, PUtimer{ PAD_ENLARGE_T, dr.size });
-                //dr.size = newSize;
+                // הסר את ה־PU
+                World::destroyEntity(*pu);
+            }
+        };
 
-                // adjust Box2D shape (simplest: scale transform)
-                b2BodyId body = World::getComponent<Collider>(pad).b;
-                b2Transform tf = b2Body_GetTransform(body);
-                b2DestroyBody(body);                                // rebuild body
-                // re-create kinematic body with bigger box...
-                // (left as exercise – similar ל-createPad but עם size חדשה)
-
-                World::destroyEntity(pu);                           // consume PU
-            };
-            handle(*ea, *eb);
-            handle(*eb, *ea);
-        }
     }
+
 
 
     void Game::enlarge_timer_system() const {

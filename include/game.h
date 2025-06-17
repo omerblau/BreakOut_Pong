@@ -26,7 +26,7 @@ namespace game {
     using IsCollision = struct {};
     using Breakable = struct {};
     using Goal = struct {bool left, right;};
-    using Falling      = struct { float vy; float playerCollectId;}; // constant vertical velocity (px/s) for power ups
+    using Falling      = struct { float vy; bool playerCollectSide;}; // constant vertical velocity (px/s) for power ups
     using EnlargePU    = struct {}; // tag – specific effect: enlarge paddle
     using PUtimer = struct { float ballHit; }; // countdown timer for power up effects
 
@@ -52,6 +52,9 @@ namespace game {
         void score_system() const;
 
         void powerup_move_system() const;
+
+        void power_up_system() const;
+
         void powerup_collision_system() const;
 
         void enlarge_timer_system() const;
@@ -87,7 +90,10 @@ namespace game {
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
-        static constexpr float PU_SPEED_PPS = 50.0f;  // pixels per second
+        static constexpr float PU_SPEED_PPS = 120.0f;  // pixels per second
+
+        static constexpr bool RIGHT_PLAYER_POWERUP = false;
+        static constexpr bool LEFT_PLAYER_POWERUP = true;
 
         SDL_Texture  *tex{};
         SDL_Texture *bgTex{};
