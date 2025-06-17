@@ -4,7 +4,6 @@
 
 #include <iostream>
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
 #include <box2d/box2d.h>
 #include "../lib/box2d/src/body.h"
 
@@ -14,18 +13,18 @@ using namespace std;
 using namespace bagel;
 
 namespace game {
-    bool Game::valid() const {
-        return tex != nullptr && bgTex != nullptr && pauseTex != nullptr &&
-               leftWinTex != nullptr && rightWinTex != nullptr;
-    }
-
+    /// !!! the reason these below are not split in to different files is as follows
+    /// the bagel.h engine uses a macro to give id's to entities and bit's location for mask based on instances of a template class instance
+    /// these start from 0 for each new file.
+    /// ─── Factory functions ──────────────────────────────────────────
     void Game::createBall() const {
         b2BodyDef ballBodyDef = b2DefaultBodyDef();
         ballBodyDef.type = b2_dynamicBody;
+        ballBodyDef.isBullet = true;
         ballBodyDef.fixedRotation = false;
         ballBodyDef.position = {
-            static_cast<int>(WIN_WIDTH / 2) / BOX_SCALE,
-            static_cast<int>(WIN_HEIGHT / 2) / BOX_SCALE
+            WIN_WIDTH / 2 / BOX_SCALE,
+            WIN_HEIGHT / 2 / BOX_SCALE
         };
 
         b2ShapeDef ballShapeDef = b2DefaultShapeDef();
@@ -187,99 +186,6 @@ namespace game {
         }
     }
 
-    bool Game::prepareWindowAndTexture() {
-        if (!SDL_Init(SDL_INIT_VIDEO)) {
-            cout << SDL_GetError() << endl;
-            return false;
-        }
-
-        if (!SDL_CreateWindowAndRenderer(
-            "Breakout Pong", WIN_WIDTH, WIN_HEIGHT, 0, &win, &ren)) {
-            cout << SDL_GetError() << endl;
-            SDL_Quit();
-            return false;
-        }
-
-        bgTex = IMG_LoadTexture(ren, "res/bg.png");
-        if (!bgTex) {
-            std::cerr << "IMG_LoadTexture Error: " << SDL_GetError() << "\n";
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-
-        SDL_Surface *surf = IMG_Load("res/spritesheet.png");
-        if (surf == nullptr) {
-            cout << SDL_GetError() << endl;
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        tex = SDL_CreateTextureFromSurface(ren, surf);
-        SDL_DestroySurface(surf);
-
-        if (tex == nullptr) {
-            cout << SDL_GetError() << endl;
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load pause texture
-        pauseTex = IMG_LoadTexture(ren, "res/pause.png");
-        if (!pauseTex) {
-            std::cerr << "Failed to load pause.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load left win texture
-        leftWinTex = IMG_LoadTexture(ren, "res/left_win.png");
-        if (!leftWinTex) {
-            std::cerr << "Failed to load left_win.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(pauseTex);
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load right win texture
-        rightWinTex = IMG_LoadTexture(ren, "res/right_win.png");
-        if (!rightWinTex) {
-            std::cerr << "Failed to load right_win.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(leftWinTex);
-            SDL_DestroyTexture(pauseTex);
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        return true;
-    }
-
-    void Game::prepareBoxWorld() {
-        b2WorldDef worldDef = b2DefaultWorldDef();
-        worldDef.gravity = {0, 0};
-        boxWorld = b2CreateWorld(&worldDef);
-    }
-
     void Game::prepareWalls() const {
         /* ---------- 1. Body & shape templates ---------- */
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -336,6 +242,7 @@ namespace game {
         makeGoalWall(W + T, H * 0.5f, T, H * 0.5f, false);
     }
 
+    /// ─── ECS systems ───────────────────────────────────────────
     void Game::box_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Collider>()
@@ -454,53 +361,53 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
-    // void Game::collision_detector_system() const {
-    //     static const Mask mask = MaskBuilder()
-    //             .set<Collider>()
-    //             .build();
-    //     const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
-    //     for (int i = 0; i < events.beginCount; ++i) {
-    //         std::cout << "Collision detected between: " << std::endl;
-    //         b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
-    //         b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
-    //
-    //         void* userData1 = b2Body_GetUserData(e1);
-    //         void* userData2 = b2Body_GetUserData(e2);
-    //
-    //         if (userData1) {
-    //             ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
-    //             if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
-    //                 World::addComponent(entity1, IsCollision{});
-    //             }
-    //         }
-    //
-    //         if (userData2) {
-    //             ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
-    //             if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
-    //                 World::addComponent(entity2, IsCollision{});
-    //             }
-    //         }
-    //     }
-    // }
-
-    void Game::collision_detector_system () const {
+    /*void Game::collision_detector_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Collider>()
                 .build();
-        const b2ContactEvents& events = b2World_GetContactEvents(boxWorld);
+        const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
         for (int i = 0; i < events.beginCount; ++i) {
             std::cout << "Collision detected between: " << std::endl;
             b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
             b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
 
-            auto *visitor1 = static_cast<ent_type*>(b2Body_GetUserData(e1));
+            void* userData1 = b2Body_GetUserData(e1);
+            void* userData2 = b2Body_GetUserData(e2);
+
+            if (userData1) {
+                ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
+                if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
+                    World::addComponent(entity1, IsCollision{});
+                }
+            }
+
+            if (userData2) {
+                ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
+                if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
+                    World::addComponent(entity2, IsCollision{});
+                }
+            }
+        }
+    }*/
+
+    void Game::collision_detector_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<Collider>()
+                .build();
+        const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
+        for (int i = 0; i < events.beginCount; ++i) {
+            std::cout << "Collision detected between: " << std::endl;
+            b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+            b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+
+            auto *visitor1 = static_cast<ent_type *>(b2Body_GetUserData(e1));
             cout << "Entity 1: " << (visitor1 ? std::to_string(visitor1->id) : "null") << std::endl;
-            auto *visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+            auto *visitor2 = static_cast<ent_type *>(b2Body_GetUserData(e2));
             cout << "Entity 2: " << (visitor2 ? std::to_string(visitor2->id) : "null") << std::endl;
             if (visitor1 && World::mask(*visitor1).test(mask))
                 World::addComponent(*visitor1, IsCollision{});
             if (visitor2 && World::mask(*visitor2).test(mask)) {
-                visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+                visitor2 = static_cast<ent_type *>(b2Body_GetUserData(e2));
                 World::addComponent(*visitor2, IsCollision{});
             }
         }
@@ -581,6 +488,7 @@ namespace game {
         }
     }
 
+    /// ─── Constraint helpers ────────────────────────────────────────
     void Game::paddle_bounds() const {
         static const Mask paddleMask = MaskBuilder()
                 .set<Collider>()
@@ -657,62 +565,7 @@ namespace game {
         }
     }
 
-    bool Game::poll_quit() const {
-        // This is now just a flag check, actual polling happens in handle_game_state_input
-        return false;
-    }
-
-    void Game::windowClosedClicked() {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_EVENT_QUIT)
-                appQuit = true;
-        }
-    }
-
-    void Game::handle_game_state_input() {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_EVENT_QUIT ||
-                (e.type == SDL_EVENT_KEY_DOWN &&
-                 e.key.scancode == SDL_SCANCODE_ESCAPE)) {
-                // Set a quit flag that will be checked by poll_quit
-                const_cast<Game*>(this)->shouldQuit = true;
-                continue;
-            }
-
-            if (e.type == SDL_EVENT_KEY_DOWN) {
-                switch (gameState) {
-                    case GameState::PLAYING:
-                        if (e.key.scancode == SDL_SCANCODE_P) {
-                            gameState = GameState::PAUSED;
-                        }
-                        break;
-
-                    case GameState::PAUSED:
-                        if (e.key.scancode == SDL_SCANCODE_P) {
-                            gameState = GameState::PLAYING;
-                        } else if (e.key.scancode == SDL_SCANCODE_N) {
-                            reset_game();
-                            gameState = GameState::PLAYING;
-                        }
-                        break;
-
-                    case GameState::LEFT_WIN:
-                    case GameState::RIGHT_WIN:
-                        if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
-                            reset_game();
-                            gameState = GameState::PLAYING;
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-        }
-    }
-
+    /// ─── Entity-lifecycle helpers ──────────────────────────────────
     void Game::destroy_all_entities() {
         // Destroy all entities with colliders first
         static const Mask colliderMask = MaskBuilder()
@@ -743,244 +596,5 @@ namespace game {
         createBall();
         createPads();
         placeBricks();
-    }
-
-    void Game::pace_frame() const {
-        static Uint32 frameStart = SDL_GetTicks();
-        const Uint64 frameEnd = SDL_GetTicks();
-        const Uint64 elapsed = frameEnd - frameStart;
-        if (elapsed < static_cast<Uint64>(GAME_FRAME))
-            SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-        frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
-    }
-
-    void Game::pace_frame_test(Uint64 &start){
-        Uint64 end = SDL_GetTicks();
-        if (end-start < GAME_FRAME) {
-            SDL_Delay(GAME_FRAME - (end-start));
-        }
-        start += GAME_FRAME;
-    }
-
-
-    /// menus
-    SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
-        SDL_Texture *tx = IMG_LoadTexture(r, file);
-        if (!tx)
-            std::cerr << "IMG_LoadTexture error (" << file << "): "
-                    << SDL_GetError() << '\n';
-        return tx;
-    }
-
-    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
-        for (int i = 0; i < keyCount; ++i)
-            if (keys[i]) return true;
-        return false;
-    }
-
-    void Game::handleMainKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1])
-            ui = UIScreen::GameModes;
-        else if (keys[SDL_SCANCODE_2])
-            ui = UIScreen::Instructions;
-
-    }
-
-    void Game::handleInstructionsKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1])
-            ui = UIScreen::Main;
-    }
-
-    void Game::handleGameModeKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1]) {
-            mode = GameMode::FirstGoal;
-            ui = UIScreen::Players;
-        } else if (keys[SDL_SCANCODE_2]) {
-            mode = GameMode::BreakAll;
-            ui = UIScreen::Players;
-        } else if (keys[SDL_SCANCODE_3]) {
-            ui = UIScreen::Main;
-        }
-    }
-
-    bool Game::handlePlayersKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1]) {
-            players = PlayerSide::Single;
-            return true;
-        }
-        if (keys[SDL_SCANCODE_2]) {
-            players = PlayerSide::Two;
-            return true;
-        }
-        if (keys[SDL_SCANCODE_3])
-            ui = UIScreen::GameModes;
-        else if (keys[SDL_SCANCODE_M])
-            ui = UIScreen::Main;
-        return false;
-    }
-
-    void Game::showScreen(UIScreen s) const {
-        // 1. Fetch texture size
-        float imgW{}, imgH{};
-        if (!uiTex[static_cast<int>(s)] ||
-            !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
-            std::cerr << "showScreen: texture missing or size query failed for state "
-                    << static_cast<int>(s) << " – " << SDL_GetError() << '\n';
-            return;
-        }
-
-        // 2. “Cover” scale so the window fills without distortion
-        const float scale = std::max(WIN_WIDTH / imgW,
-                                     WIN_HEIGHT / imgH);
-
-        const SDL_FRect dst{
-            (WIN_WIDTH - imgW * scale) * 0.5f,
-            (WIN_HEIGHT - imgH * scale) * 0.5f,
-            imgW * scale,
-            imgH * scale
-        };
-
-        // 3. Render
-        SDL_RenderClear(ren);
-        SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
-        SDL_RenderPresent(ren);
-    }
-
-    void Game::waitMainLoop() {
-        bool waitKeyRelease = false;
-
-        while (!appQuit) {
-            SDL_PumpEvents();
-            int keyCount = 0;
-            const bool *keys = SDL_GetKeyboardState(&keyCount);
-
-            if (waitKeyRelease) {
-                if (anyKeyStillDown(keys, keyCount)) {
-                    showScreen(ui);
-                    pace_frame();
-                    continue;
-                }
-                waitKeyRelease = false;
-            }
-
-            const UIScreen prev = ui;
-            bool startGame = false; // s
-
-            switch (ui) {
-                case UIScreen::Main: handleMainKeys(keys);
-                    break;
-                case UIScreen::Instructions: handleInstructionsKeys(keys);
-                    break;
-                case UIScreen::GameModes: handleGameModeKeys(keys);
-                    break;
-                case UIScreen::Players: startGame = handlePlayersKeys(keys);
-                    break;
-                default:
-                    break;
-            }
-
-            if (ui != prev)
-                waitKeyRelease = true;
-
-            showScreen(ui);
-            pace_frame();
-
-            if (startGame)
-                return;
-
-            if (keys[SDL_SCANCODE_ESCAPE])
-                appQuit = true;
-            windowClosedClicked();
-        }
-    }
-
-    void Game::launch() {
-        while (!appQuit) {
-            waitMainLoop();
-            if (appQuit)
-                break;
-
-            run();
-        }
-    }
-
-    Game::Game() {
-        if (!prepareWindowAndTexture())
-            return;
-// todo move to prep funciton
-        uiTex[static_cast<int>(UIScreen::Main)] = loadTex(ren, "res/bg_mainMenu.png");
-        uiTex[static_cast<int>(UIScreen::Instructions)] = loadTex(ren, "res/bg_instructions.png");
-        uiTex[static_cast<int>(UIScreen::GameModes)] = loadTex(ren, "res/bg_GameModeMenu.png");
-        uiTex[static_cast<int>(UIScreen::Players)] = loadTex(ren, "res/bg_players.png");
-
-        SDL_srand(time(nullptr));
-
-        prepareBoxWorld();
-        prepareWalls();
-        createBall();
-        createPads();
-        placeBricks();
-    }
-
-    Game::~Game() {
-        for (const auto &i: uiTex)
-            if (i)
-                SDL_DestroyTexture(i);
-
-        if (b2World_IsValid(boxWorld))
-            b2DestroyWorld(boxWorld);
-        if (tex != nullptr)
-            SDL_DestroyTexture(tex);
-        if (bgTex != nullptr)
-            SDL_DestroyTexture(bgTex);
-        if (pauseTex != nullptr)
-            SDL_DestroyTexture(pauseTex);
-        if (leftWinTex != nullptr)
-            SDL_DestroyTexture(leftWinTex);
-        if (rightWinTex != nullptr)
-            SDL_DestroyTexture(rightWinTex);
-        if (ren != nullptr)
-            SDL_DestroyRenderer(ren);
-        if (win != nullptr)
-            SDL_DestroyWindow(win);
-
-        SDL_Quit();
-    }
-
-    void Game::run() {
-        SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-
-        auto start = SDL_GetTicks();
-
-        bool quit = false;
-        bool gameExitToMenu = false;
-        while (!gameExitToMenu && !appQuit) {
-            World::step();
-            const_cast<Game*>(this)->handle_game_state_input();
-
-            // Only run game systems when playing
-            if (gameState == GameState::PLAYING) {
-                input_system();
-                move_system();
-                box_system();
-                constraints_system();
-                collision_detector_system();
-                brick_system();
-                const_cast<Game*>(this)->score_system();
-                cleanup_collision_system();
-            }
-            draw_system();
-
-            pace_frame();
-            // pace_frame_test(start);
-            // auto end = SDL_GetTicks();
-            // if (end-start < GAME_FRAME) {
-            //     SDL_Delay(GAME_FRAME - (end-start));
-            // }
-            // start += GAME_FRAME;
-
-            windowClosedClicked();
-            quit = shouldQuit;
-        }
     }
 }

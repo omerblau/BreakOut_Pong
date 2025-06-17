@@ -11,9 +11,10 @@ using namespace bagel;
 
 namespace game {
 
-    enum class UIScreen {Main, Instructions, GameModes, Players, Playing, COUNT};
-    enum class GameMode   { None, FirstGoal, BreakAll };
-    enum class PlayerSide { None = 0, Single = 1, Two = 2 };
+    enum class UIScreen   {Main, Instructions, GameModes, Players, Playing, COUNT};
+    enum class GameMode   {None, FirstGoal, BreakAll };
+    enum class PlayerSide {None = 0, Single = 1, Two = 2 };
+    enum class GameState  {PLAYING, PAUSED, LEFT_WIN, RIGHT_WIN};
 
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
     using Transform    = struct { SDL_FPoint p; float angle; };
@@ -28,12 +29,6 @@ namespace game {
     using Goal         = struct {bool left, right;};
     using Ball         = struct {};
 
-    enum class GameState {
-        PLAYING,
-        PAUSED,
-        LEFT_WIN,
-        RIGHT_WIN
-    };
 
     class Game {
     public:
@@ -68,8 +63,8 @@ namespace game {
         void handle_game_state_input();
         void reset_game();
         void destroy_all_entities();
-        void paddle_bounds() const;   // Y-clamp  +  angle-clamp
-        void ball_speed_cap() const;  // velocity limiter
+        void paddle_bounds() const;
+        void ball_speed_cap() const;
         bool poll_quit() const;
         void windowClosedClicked();
 
@@ -78,7 +73,6 @@ namespace game {
         void createBrick(const SDL_FPoint &pos, int row) const;
         void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
         void pace_frame() const;
-        void pace_frame_test(Uint64 &start); //todo: remove before submission
 
         /// init game
         bool prepareWindowAndTexture();
