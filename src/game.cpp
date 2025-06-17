@@ -640,8 +640,7 @@ namespace game {
                 .set<Collider>()
                 .build();
 
-        constexpr float MAX_MPS = 10.0f;
-        constexpr float MAX_V2 = MAX_MPS * MAX_MPS;
+        constexpr float MAX_V2 = BALL_MAX_MPS * BALL_MAX_MPS;
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
             if (!World::mask(e).test(colliderMask)) continue;
@@ -652,7 +651,7 @@ namespace game {
 
             auto [x, y] = b2Body_GetLinearVelocity(b);
             if (const float v2 = x * x + y * y; v2 > MAX_V2) {
-                const float scale = MAX_MPS / SDL_sqrtf(v2);
+                const float scale = BALL_MAX_MPS / SDL_sqrtf(v2);
                 b2Body_SetLinearVelocity(b, {x * scale, y * scale});
             }
         }
@@ -750,10 +749,19 @@ namespace game {
         static Uint32 frameStart = SDL_GetTicks();
         const Uint64 frameEnd = SDL_GetTicks();
         const Uint64 elapsed = frameEnd - frameStart;
-        if (elapsed)
+        if (elapsed < static_cast<Uint64>(GAME_FRAME))
             SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
         frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
     }
+
+    void Game::pace_frame_test(Uint64 &start){
+        Uint64 end = SDL_GetTicks();
+        if (end-start < GAME_FRAME) {
+            SDL_Delay(GAME_FRAME - (end-start));
+        }
+        start += GAME_FRAME;
+    }
+
 
     /// menus
     SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
@@ -942,6 +950,8 @@ namespace game {
     void Game::run() {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
+        auto start = SDL_GetTicks();
+
         bool quit = false;
         bool gameExitToMenu = false;
         while (!gameExitToMenu && !appQuit) {
@@ -962,6 +972,13 @@ namespace game {
             draw_system();
 
             pace_frame();
+            // pace_frame_test(start);
+            // auto end = SDL_GetTicks();
+            // if (end-start < GAME_FRAME) {
+            //     SDL_Delay(GAME_FRAME - (end-start));
+            // }
+            // start += GAME_FRAME;
+
             windowClosedClicked();
             quit = shouldQuit;
         }

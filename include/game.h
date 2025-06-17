@@ -78,7 +78,7 @@ namespace game {
         void createBrick(const SDL_FPoint &pos, int row) const;
         void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
         void pace_frame() const;
-
+        void pace_frame_test(Uint64 &start); //todo: remove before submission
 
         /// init game
         bool prepareWindowAndTexture();
@@ -96,11 +96,13 @@ namespace game {
         static constexpr float DEG_TO_RAD = 1.0f / RAD_TO_DEG;
 
         static constexpr int   PAD_Y_MARGIN  = 200;
-        static constexpr float PAD_MOVE      = 5.0f;
-        static constexpr float PAD_TILT      = 12.0f;
-        static constexpr float BALL_INIT_MPS = 3.0f;       // 3 m/s ≈ 30 px/s
+        static constexpr float PAD_MOVE      = 12.0f;
+        static constexpr float PAD_TILT      = 200.0f;
 
-        static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
+        static constexpr float BALL_INIT_MPS = 10.0f;
+        static constexpr float BALL_MAX_MPS  = 23.0f;       // 3 m/s ≈ 30 px/s
+
+        static constexpr float BOX_SCALE        = 100.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.25f;
@@ -109,10 +111,10 @@ namespace game {
         static constexpr int BRICK_H = 135;
 
         SDL_Texture  *tex{};
-        SDL_Texture *bgTex{};
-        SDL_Texture *pauseTex{};
-        SDL_Texture *leftWinTex{};
-        SDL_Texture *rightWinTex{};
+        SDL_Texture  *bgTex{};
+        SDL_Texture  *pauseTex{};
+        SDL_Texture  *leftWinTex{};
+        SDL_Texture  *rightWinTex{};
         SDL_Texture  *uiTex[static_cast<int>(UIScreen::COUNT)]{};
         SDL_Renderer *ren{};
         SDL_Window   *win{};
