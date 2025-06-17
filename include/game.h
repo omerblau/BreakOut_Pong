@@ -65,6 +65,9 @@ namespace game {
         void move_system() const;
         void draw_system() const;
         void collision_detector_system() const;
+
+        void enlargePaddle(ent_type pad) const;
+
         void brick_system() const;
         void score_system();
         void cleanup_collision_system() const;
@@ -101,6 +104,10 @@ namespace game {
         void placeBricks() const;
         void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const;
 
+
+        static constexpr float SPEED_MULTIPLIER = 10.0f;
+
+
         static constexpr int WIN_WIDTH = 1500;
         static constexpr int WIN_HEIGHT = 1000;
         static constexpr int FPS = 60;
@@ -110,9 +117,9 @@ namespace game {
         static constexpr float DEG_TO_RAD = 1.0f / RAD_TO_DEG;
 
         static constexpr int   PAD_Y_MARGIN  = 200;
-        static constexpr float PAD_MOVE      = 5.0f;
-        static constexpr float PAD_TILT      = 12.0f;
-        static constexpr float BALL_INIT_MPS = 3.0f;       // 3 m/s ≈ 30 px/s
+        static constexpr float PAD_MOVE      = 5.0f * SPEED_MULTIPLIER;
+        static constexpr float PAD_TILT      = 12.0f * SPEED_MULTIPLIER;
+        static constexpr float BALL_INIT_MPS = 3.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
 
         static constexpr float BOX_SCALE        = 10.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
@@ -122,7 +129,7 @@ namespace game {
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
-        static constexpr float PU_SPEED_PPS = 120.0f;  // pixels per second
+        static constexpr float PU_SPEED_PPS = 10.0f * SPEED_MULTIPLIER;  // pixels per second
 
         static constexpr bool RIGHT_PLAYER_POWERUP = false;
         static constexpr bool LEFT_PLAYER_POWERUP = true;

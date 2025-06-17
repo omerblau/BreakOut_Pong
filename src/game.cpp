@@ -75,6 +75,7 @@ namespace game {
         b2Body_SetTransform(padBody, padBodyDef.position, rot);
 
         b2ShapeDef padShapeDef = b2DefaultShapeDef();
+        padShapeDef.enableSensorEvents = true;
         padShapeDef.density = 0;
 
         const b2Polygon padBox = b2MakeBox(
@@ -487,13 +488,12 @@ namespace game {
     void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const {
         // 1. physics (sensor)
         b2BodyDef bd = b2DefaultBodyDef();
-        bd.type      = b2_kinematicBody;
+        bd.type          = b2_dynamicBody;
         bd.position  = { pos.x / BOX_SCALE, pos.y / BOX_SCALE };
         b2BodyId b = b2CreateBody(boxWorld, &bd);
 
         b2ShapeDef sd = b2DefaultShapeDef();
         sd.isSensor   = true;               // collect only, no collision response
-        sd.enableContactEvents = true;
         sd.enableSensorEvents = true;
         b2Polygon box = b2MakeBox(20 / BOX_SCALE, 20 / BOX_SCALE);
         b2CreatePolygonShape(b, &sd, &box);
@@ -518,52 +518,127 @@ namespace game {
     }
 
 
-    void Game::collision_detector_system () const {
-        static const Mask mask = MaskBuilder()
-                .set<Collider>()
-                .build();
-        const b2ContactEvents& events = b2World_GetContactEvents(boxWorld);
-        for (int i = 0; i < events.beginCount; ++i) {
-            std::cout << "Collision detected between: " << std::endl;
-            b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
-            b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+    // void Game::collision_detector_system () const {
+    //     static const Mask mask = MaskBuilder()
+    //             .set<Collider>()
+    //             .build();
+    //
+    //
+    //     const b2ContactEvents& events = b2World_GetContactEvents(boxWorld);
+    //     for (int i = 0; i < events.beginCount; ++i) {
+    //         std::cout << "Collision detected between: " << std::endl;
+    //         b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+    //         b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+    //
+    //         auto *visitor1 = static_cast<ent_type*>(b2Body_GetUserData(e1));
+    //         cout << "Entity 1: " << (visitor1 ? std::to_string(visitor1->id) : "null") << std::endl;
+    //         auto *visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+    //         cout << "Entity 2: " << (visitor2 ? std::to_string(visitor2->id) : "null") << std::endl;
+    //         if (visitor1 && World::mask(*visitor1).test(mask))
+    //             World::addComponent(*visitor1, IsCollision{});
+    //         if (visitor2 && World::mask(*visitor2).test(mask)) {
+    //             visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
+    //             World::addComponent(*visitor2, IsCollision{});
+    //         }
+    //     }
+    // }
 
-            auto *visitor1 = static_cast<ent_type*>(b2Body_GetUserData(e1));
-            cout << "Entity 1: " << (visitor1 ? std::to_string(visitor1->id) : "null") << std::endl;
-            auto *visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
-            cout << "Entity 2: " << (visitor2 ? std::to_string(visitor2->id) : "null") << std::endl;
-            if (visitor1 && World::mask(*visitor1).test(mask))
-                World::addComponent(*visitor1, IsCollision{});
-            if (visitor2 && World::mask(*visitor2).test(mask)) {
-                visitor2 = static_cast<ent_type*>(b2Body_GetUserData(e2));
-                World::addComponent(*visitor2, IsCollision{});
+
+
+    void Game::collision_detector_system() const
+    {
+        /* bitmasks for quick classifying */
+        auto isBrick   =[&](ent_type e){return World::mask(e).test(Component<Breakable>::Bit);};
+        auto isBall    =[&](ent_type e){return World::mask(e).test(Component<Ball>::Bit);};
+        auto isPowerUp =[&](ent_type e){return World::mask(e).test(Component<Falling>::Bit);};
+        auto isPaddle  =[&](ent_type e){return World::mask(e).test(Component<Intent>::Bit);};
+
+
+        auto handlePair = [&](b2ShapeId sa, b2ShapeId sb)
+        {
+            b2BodyId ba = b2Shape_GetBody(sa);
+            b2BodyId bb = b2Shape_GetBody(sb);
+            auto* ea = static_cast<ent_type*>(b2Body_GetUserData(ba));
+            auto* eb = static_cast<ent_type*>(b2Body_GetUserData(bb));
+            if (!ea || !eb) return;
+
+            /* ---------- Brick × Ball ---------- */
+            if ((isBrick(*ea) && isBall(*eb)) || (isBrick(*eb) && isBall(*ea)))
+            {
+                ent_type brick = isBrick(*ea) ? *ea : *eb;
+                World::addComponent(brick, IsCollision{});
             }
 
+            /* ---------- Paddle × Power-Up ---------- */
+            if ( (isPaddle(*ea) && isPowerUp(*eb)) ||
+                 (isPaddle(*eb) && isPowerUp(*ea)) )
+            {
+                ent_type pad = isPaddle(*ea)  ? *ea : *eb;
+                ent_type pu  = isPowerUp(*ea) ? *ea : *eb;
 
+                enlargePaddle(pad);         // ⬅️  חדש
 
-
-
-
-
-            // --- הוספת טאג ספציפי לאיסוף Power-Up ---
-            bool e1IsPad = e1.isValid() && World::mask(e1).test(PAD_MASK);
-            bool e2IsPad = e2.isValid() && World::mask(e2).test(PAD_MASK);
-
-            bool e1IsPowerUp = e1.isValid() && World::mask(e1).test(POWER_UP_ANY_TYPE_MASK);
-            bool e2IsPowerUp = e2.isValid() && World::mask(e2).test(POWER_UP_ANY_TYPE_MASK);
-
-            // תרחיש 1: e1 היא מטקה, e2 הוא Power-Up
-            if (e1IsPad && e2IsPowerUp) {
-                std::cout << "Pad " << e1.id << " collected Power-Up " << e2.id << std::endl;
-                World::addComponent(e1, PadCollectedPowerUp{e2}); // תייג את המטקה ברכיב החדש
+                b2BodyId bpu = World::getComponent<Collider>(pu).body;
+                b2DestroyBody(bpu);
+                World::destroyEntity(pu);
             }
-            // תרחיש 2: e2 היא מטקה, e1 הוא Power-Up
-            else if (e2IsPad && e1IsPowerUp) {
-                std::cout << "Pad " << e2.id << " collected Power-Up " << e1.id << std::endl;
-                World::addComponent(e2, PadCollectedPowerUp{e1}); // תייג את המטקה ברכיב החדש
-            }
+
+        };
+
+        /* ① Contact-Events  */
+        const b2ContactEvents& ce = b2World_GetContactEvents(boxWorld);
+        for (int i = 0; i < ce.beginCount; ++i)
+            handlePair(ce.beginEvents[i].shapeIdA,
+                       ce.beginEvents[i].shapeIdB);
+
+
+        /* --------------- 2. Sensor-Events ----------------- */
+        const b2SensorEvents&  se = b2World_GetSensorEvents(boxWorld);
+        for (int i = 0; i < se.beginCount; ++i) {
+            handlePair(se.beginEvents[i].sensorShapeId,
+                       se.beginEvents[i].visitorShapeId);
+            cout << "matka and sensor" << std::endl;
         }
+
+
     }
+
+
+    void Game::enlargePaddle(ent_type pad) const
+    {
+        /* --- 1. Sprite חדש --- */
+        auto& dr = World::getComponent<Drawable>(pad);
+        dr.part = PAD_LONG_COORDS;
+        dr.size = { PAD_LONG_COORDS.w * PAD_TEX_SCALE,
+                    PAD_LONG_COORDS.h * PAD_TEX_SCALE };
+
+        /* --- 2. גוף Box2D חדש --- */
+        b2BodyId body = World::getComponent<Collider>(pad).body;
+
+        /* א. מוחקים את כל הצורות הישנות */
+        // for (b2ShapeId s = b2Body_GetFirstShapeId(body);  // ⬅️  שם הפונקציה הנכון
+        //      b2Shape_IsValid(s); )
+        // {
+        //     b2ShapeId next = b2Shape_GetNext(s);          // שומרים לפני ההשמדה
+        //     b2DestroyShape(s);
+        //     s = next;
+        // }
+
+        /* ב. יוצרים צורה ארוכה */
+        b2ShapeDef sd = b2DefaultShapeDef();
+        sd.density = 0;
+        sd.enableSensorEvents = true;
+
+        const float hx = PAD_LONG_COORDS.w * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
+        const float hy = PAD_LONG_COORDS.h * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
+        b2Polygon box = b2MakeBox(hx, hy);
+        b2CreatePolygonShape(body, &sd, &box);
+
+        /* (ג. רשות) הוספת טיימר להחזרת הגודל המקורי בעתיד
+           World::addComponent(pad, PUtimer{5.0f, dr.size}); */
+    }
+
+
 
 
 
@@ -635,7 +710,7 @@ namespace game {
                 auto& c = World::getComponent<Collider>(e);
 
                 // Box2D already advances the body; we only sync Transform for rendering
-                b2Transform tf = b2Body_GetTransform(c.b);
+                b2Transform tf = b2Body_GetTransform(c.body);
                 t.p.x = tf.p.x * BOX_SCALE;
                 t.p.y = tf.p.y * BOX_SCALE;
 
@@ -644,44 +719,41 @@ namespace game {
                     World::destroyEntity(e);
             }
     }
+    //
+    // void Game::powerup_collision_system() const
+    // {
+    //     static const Mask padM = MaskBuilder()
+    //         .set<Collider>().set<Drawable>().build();    // paddle = יש Intent
+    //     static const Mask puM  = MaskBuilder()
+    //         .set<Falling>().set<Collider>().build();     // power-up = Falling
+    //
+    //     const b2ContactEvents& ev = b2World_GetContactEvents(boxWorld);
+    //
+    //     /* helper – receives two shapes, בודק אם זה pad×pu ומשמיד */
+    //     auto handle = [&](b2ShapeId sa, b2ShapeId sb)
+    //     {
+    //         b2BodyId ba = b2Shape_GetBody(sa);
+    //         b2BodyId bb = b2Shape_GetBody(sb);
+    //         auto* ea = static_cast<ent_type*>(b2Body_GetUserData(ba));
+    //         auto* eb = static_cast<ent_type*>(b2Body_GetUserData(bb));
+    //         if (!ea || !eb) return;
+    //
+    //         /* נבדוק בשני הכיוונים: */
+    //         for (auto [pad, pu] : std::array<std::pair<ent_type*,ent_type*>,2>{{{ea,eb},{eb,ea}}})
+    //         {
+    //             if (!World::mask(*pad).test(padM)) continue;
+    //             if (!World::mask(*pu ).test(puM )) continue;
+    //
+    //             World::destroyEntity(*pu);          // collected!
+    //             // TODO: enlarge paddle, start timer...
+    //         }
+    //     };
+    //
+    //     /* beginEvents – תמיד קיימים */
+    //     for (int i = 0; i < ev.beginCount; ++i)
+    //         handle(ev.beginEvents[i].shapeIdA, ev.beginEvents[i].shapeIdB);
+    // }
 
-
-
-    void Game::powerup_collision_system() const {
-        static const Mask padM = MaskBuilder()
-            .set<Collider>()
-            .set<Drawable>()
-            .set<IsCollision>()
-            .build();
-
-        static const Mask puM = MaskBuilder()
-            .set<Falling>()
-            .set<Collider>()
-            .set<IsCollision>()
-            .build();
-
-        const b2ContactEvents& ev = b2World_GetContactEvents(boxWorld);
-
-        // מעבד גם beginEvents וגם beginSensorEvents
-        auto handleEvent = [&](b2ShapeId sa, b2ShapeId sb) {
-            b2BodyId a = b2Shape_GetBody(sa);
-            b2BodyId b = b2Shape_GetBody(sb);
-
-            auto* ea = static_cast<ent_type*>(b2Body_GetUserData(a));
-            auto* eb = static_cast<ent_type*>(b2Body_GetUserData(b));
-            if (!ea || !eb) return;
-
-            // בדוק שני הכיוונים – אחת המטקה ואחת ה־PU
-            for (auto [pad, pu] : std::array<std::pair<ent_type*, ent_type*>, 2>{{{ea, eb}, {eb, ea}}}) {
-                if (!World::mask(*pad).test(padM)) continue;
-                if (!World::mask(*pu).test(puM)) continue;
-
-                // הסר את ה־PU
-                World::destroyEntity(*pu);
-            }
-        };
-
-    }
 
 
 
@@ -704,15 +776,7 @@ namespace game {
 
 
 
-    void Game::score_system () const {
-        static const Mask mask = MaskBuilder()
-            .set<IsCollision>()
-            .set<Goal>()
-            .build();
-                }
-            }
-        }
-    }
+
 
     void Game::score_system() {
         static const Mask goalMask = MaskBuilder()
@@ -814,7 +878,7 @@ namespace game {
                 .set<Collider>()
                 .build();
 
-        constexpr float MAX_MPS = 10.0f;
+        constexpr float MAX_MPS = 10.0f * SPEED_MULTIPLIER;
         constexpr float MAX_V2 = MAX_MPS * MAX_MPS;
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
@@ -928,6 +992,9 @@ namespace game {
             SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
         frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
     }
+
+
+
 
     /// menus
     SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
@@ -1133,17 +1200,10 @@ namespace game {
                 const_cast<Game*>(this)->score_system();
                 cleanup_collision_system();
             }
-            input_system();
-            move_system();
 
-            box_system();
-            collision_detector_system();
-            brick_system();
-            score_system();
 
-            powerup_move_system();
-            powerup_collision_system();
-            enlarge_timer_system();
+            //powerup_move_system();
+            //enlarge_timer_system();
 
             // todo: implement reset on all bricks lost (maybe?)
             draw_system();
