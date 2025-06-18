@@ -60,7 +60,7 @@ namespace game {
         void cleanup_collision_system() const;
 
         /// helpers
-        void handle_game_state_input();
+        void handle_game_state_input(bool &exit_run);
         void reset_game();
         void destroy_all_entities();
         void paddle_bounds() const;

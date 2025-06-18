@@ -43,6 +43,7 @@ namespace game {
         }
         if (keys[SDL_SCANCODE_2]) {
             players = PlayerSide::Two;
+            ui = UIScreen::Main;
             return true;
         }
         if (keys[SDL_SCANCODE_3])

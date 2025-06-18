@@ -5,19 +5,13 @@
 #include <SDL3/SDL.h>
 
 namespace game {
-    bool Game::poll_quit() const {
-        // This is now just a flag check, actual polling happens in handle_game_state_input
-        return false;
-    }
-
-    void Game::handle_game_state_input() {
+    void Game::handle_game_state_input(bool &exit_run) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_EVENT_QUIT ||
                 (e.type == SDL_EVENT_KEY_DOWN &&
                  e.key.scancode == SDL_SCANCODE_ESCAPE)) {
-                // Set a quit flag that will be checked by poll_quit
-                const_cast<Game *>(this)->shouldQuit = true;
+                appQuit = true;
                 continue;
             }
 
@@ -34,6 +28,7 @@ namespace game {
                             gameState = GameState::PLAYING;
                         } else if (e.key.scancode == SDL_SCANCODE_N) {
                             reset_game();
+                            exit_run = true;
                             gameState = GameState::PLAYING;
                         }
                         break;
@@ -42,6 +37,7 @@ namespace game {
                     case GameState::RIGHT_WIN:
                         if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
                             reset_game();
+                            exit_run = true;
                             gameState = GameState::PLAYING;
                         }
                         break;
@@ -73,13 +69,11 @@ namespace game {
     void Game::run() {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
-        bool quit = false;
-        bool gameExitToMenu = false;
-        while (!gameExitToMenu && !appQuit) {
+        bool exit_run = false;
+        while (!exit_run && !appQuit) {
             World::step();
-            const_cast<Game *>(this)->handle_game_state_input();
+            handle_game_state_input(exit_run);
 
-            // Only run game systems when playing
             if (gameState == GameState::PLAYING) {
                 input_system();
                 move_system();
@@ -87,14 +81,11 @@ namespace game {
                 constraints_system();
                 collision_detector_system();
                 brick_system();
-                const_cast<Game *>(this)->score_system();
+                score_system();
                 cleanup_collision_system();
             }
             draw_system();
-
             pace_frame();
-            windowClosedClicked();
-            quit = shouldQuit;
         }
     }
 }
