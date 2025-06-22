@@ -105,7 +105,7 @@ namespace game {
         void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const;
 
 
-        static constexpr float SPEED_MULTIPLIER = 1.0f;
+
 
 
         static constexpr int WIN_WIDTH = 1500;
@@ -118,10 +118,12 @@ namespace game {
 
         static constexpr int   PAD_Y_MARGIN  = 200;
 
+        static constexpr float SPEED_MULTIPLIER = 0.7f;
+
         static constexpr float BALL_INIT_MPS = 10.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
         static constexpr float PAD_MOVE      = 12.0f * SPEED_MULTIPLIER;
         static constexpr float PAD_TILT      = 200.0f * SPEED_MULTIPLIER;
-        static constexpr float BALL_MAX_MPS  = 23.0f;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_MAX_MPS  = 13.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
 
         static constexpr float BOX_SCALE        = 100.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
