@@ -76,6 +76,7 @@ namespace game {
 
             if (gameState == GameState::PLAYING) {
                 input_system();
+                ai_input_system();
                 move_system();
                 box_system();
                 constraints_system();

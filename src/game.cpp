@@ -63,7 +63,7 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
-    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k) const {
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const PaddleSide side) const {
         b2BodyDef padBodyDef = b2DefaultBodyDef();
         padBodyDef.type = b2_kinematicBody;
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
@@ -80,7 +80,7 @@ namespace game {
             r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
             r.h * PAD_TEX_SCALE / BOX_SCALE / 2);
         b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
-        const Entity padEntity = Entity::create();
+        Entity padEntity = Entity::create();
         padEntity.addAll(
             Transform{{}, 0},
             Drawable{r, {r.w * PAD_TEX_SCALE, r.h * PAD_TEX_SCALE}},
@@ -88,23 +88,18 @@ namespace game {
             Intent{},
             k
         );
+        if (side == PaddleSide::Left && players == Players::Single)
+            padEntity.add(AI{});
         b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
     }
 
     void Game::createPads() const {
-        createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
-                      SDL_SCANCODE_W,
-                      SDL_SCANCODE_S,
-                      SDL_SCANCODE_D,
-                      SDL_SCANCODE_A
-                  });
-        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
-                      SDL_SCANCODE_UP,
-                      SDL_SCANCODE_DOWN,
-                      SDL_SCANCODE_RIGHT,
-                      SDL_SCANCODE_LEFT,
+        if (players == Players::Single)
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {}, PaddleSide::Left);
+        else
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, LEFT_KEYS, PaddleSide::Left);
 
-                  });
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS, PaddleSide::Right);
     }
 
     void Game::createBrick(const SDL_FPoint &pos, int row) const {
@@ -286,6 +281,136 @@ namespace game {
                 i.down = keys[k.down];
                 i.tilt_up = keys[k.tilt_up];
                 i.tilt_down = keys[k.tilt_down];
+            }
+        }
+    }
+
+    // void Game::ai_input_system() const {
+    //     if (players != Players::Single) return;
+    //
+    //     Mask ballMask = MaskBuilder()
+    //         .set<Ball>()
+    //         .set<Transform>()
+    //         .build();
+    //
+    //     Mask aiPaddleMask = MaskBuilder()
+    //         .set<Transform>()
+    //         .set<Intent>()
+    //         .set<AI>()
+    //         .build();
+    //
+    //     // Get ball's position
+    //     SDL_FPoint ballPos{};
+    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+    //         if (!World::mask(e).test(ballMask)) continue;
+    //         const auto &t = World::getComponent<Transform>(e);
+    //         ballPos = t.p;
+    //         break;
+    //     }
+    //
+    //     if (ballPos.x > WIN_WIDTH / 2) return;
+    //
+    //     // For each AI-controlled paddle, update its Intent
+    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+    //         if (!World::mask(e).test(aiPaddleMask)) continue;
+    //         const auto &t = World::getComponent<Transform>(e);
+    //         auto &i = World::getComponent<Intent>(e);
+    //         i.up = i.down = false;
+    //
+    //         const float tolerance = 10.0f; // deadzone
+    //         if (ballPos.y < t.p.y - tolerance) {
+    //             i.up = true;
+    //         } else if (ballPos.y > t.p.y + tolerance) {
+    //             i.down = true;
+    //         }
+    //
+    //         // Optional: Add randomness for human-like error
+    //         // if (rand() % 100 < 5) i.up = i.down = false;
+    //     }
+    // }
+
+    void Game::ai_input_system() const {
+        if (players != Players::Single) return;
+
+        Mask ballMask = MaskBuilder()
+            .set<Ball>()
+            .set<Transform>()
+            .set<Collider>()
+            .build();
+
+        Mask aiMask = MaskBuilder()
+            .set<Transform>()
+            .set<Intent>()
+            .set<AI>()
+            .build();
+
+        // Ball state
+        SDL_FPoint ballPos{};
+        b2Vec2 ballVel{};
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(ballMask)) continue;
+            const auto &t = World::getComponent<Transform>(e);
+            const auto &c = World::getComponent<Collider>(e);
+
+            ballPos = t.p;
+            ballVel = b2Body_GetLinearVelocity(c.body);
+            break;
+        }
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(aiMask)) continue;
+
+            const auto &t = World::getComponent<Transform>(e);
+            auto &i = World::getComponent<Intent>(e);
+            auto &ai = World::getComponent<AI>(e);
+
+            float paddleX = t.p.x;
+
+            // Reset AI target if ball moves away
+            if (ballVel.x > 0 && ai.targetY != -1.0f) {
+                ai.targetY = -1.0f;
+            }
+
+            // Calculate intercept Y if ball is coming toward paddle and no target set
+            if (ballVel.x < 0 && ai.targetY == -1.0f) {
+                float x = ballPos.x;
+                float y = ballPos.y;
+                float vx = ballVel.x;
+                float vy = ballVel.y;
+
+                const float top = 0.0f;
+                const float bottom = static_cast<float>(WIN_HEIGHT);
+
+                while (x > paddleX) {
+                    float timeToWall = (vy > 0) ? (bottom - y) / vy : (top - y) / vy;
+                    float timeToPaddle = (paddleX - x) / vx;
+
+                    float dt = std::min(timeToWall, timeToPaddle);
+
+                    x += vx * dt;
+                    y += vy * dt;
+
+                    if (y <= top || y >= bottom) {
+                        vy = -vy;
+                        y = std::clamp(y, top, bottom);
+                    }
+
+                    if (x <= paddleX) break;
+                }
+
+                ai.targetY = y;
+            }
+
+            // Move paddle toward target
+            i.up = i.down = false;
+            if (ai.targetY != -1.0f) {
+                const float tolerance = 10.0f;
+                if (ai.targetY < t.p.y - tolerance) {
+                    i.up = true;
+                } else if (ai.targetY > t.p.y + tolerance) {
+                    i.down = true;
+                }
             }
         }
     }
@@ -590,8 +715,9 @@ namespace game {
     void Game::reset_game() {
         // Destroy all game entities
         destroy_all_entities();
+    }
 
-        // Recreate the game world
+    void Game::create_game() const {
         prepareWalls();
         createBall();
         createPads();

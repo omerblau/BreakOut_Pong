@@ -38,11 +38,11 @@ namespace game {
 
     bool Game::handlePlayersKeys(const bool *keys) {
         if (keys[SDL_SCANCODE_1]) {
-            players = PlayerSide::Single;
+            players = Players::Single;
             return true;
         }
         if (keys[SDL_SCANCODE_2]) {
-            players = PlayerSide::Two;
+            players = Players::Two;
             ui = UIScreen::Main;
             return true;
         }
@@ -134,6 +134,7 @@ namespace game {
             if (appQuit)
                 break;
 
+            create_game();
             run();
         }
     }
