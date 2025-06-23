@@ -13,8 +13,9 @@ namespace game {
 
     enum class UIScreen   {Main, Instructions, GameModes, Players, Playing, COUNT};
     enum class GameMode   {None, FirstGoal, BreakAll };
-    enum class PlayerSide {None = 0, Single = 1, Two = 2 };
+    enum class Players    {None = 0, Single = 1, Two = 2};
     enum class GameState  {PLAYING, PAUSED, LEFT_WIN, RIGHT_WIN};
+    enum class PaddleSide {Left, Right};
 
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
     using Transform    = struct { SDL_FPoint p; float angle; };
@@ -24,9 +25,10 @@ namespace game {
     using Keys         = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
     using Collider     = struct { b2BodyId body; };
     using Scorer       = struct { b2ShapeId s; };
+    using Goal         = struct {bool left, right;};
+    using AI           = struct {float targetY = -1.0f;};
     using IsCollision  = struct {};
     using Breakable    = struct {};
-    using Goal         = struct {bool left, right;};
     using Ball         = struct {};
 
 
@@ -52,6 +54,9 @@ namespace game {
         void box_system() const;
         void constraints_system() const;
         void input_system() const;
+
+        void ai_input_system() const;
+
         void move_system() const;
         void draw_system() const;
         void collision_detector_system() const;
@@ -62,6 +67,9 @@ namespace game {
         /// helpers
         void handle_game_state_input(bool &exit_run);
         void reset_game();
+
+        void create_game() const;
+
         void destroy_all_entities();
         void paddle_bounds() const;
         void ball_speed_cap() const;
@@ -71,7 +79,7 @@ namespace game {
         /// factories
         void createBall() const;
         void createBrick(const SDL_FPoint &pos, int row) const;
-        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
+        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&, PaddleSide side) const;
         void pace_frame() const;
 
         /// init game
@@ -104,6 +112,20 @@ namespace game {
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
+        static constexpr Keys RIGHT_KEYS = {
+            SDL_SCANCODE_UP,
+            SDL_SCANCODE_DOWN,
+            SDL_SCANCODE_RIGHT,
+            SDL_SCANCODE_LEFT
+        };
+
+        static constexpr Keys LEFT_KEYS = {
+            SDL_SCANCODE_W,
+            SDL_SCANCODE_S,
+            SDL_SCANCODE_D,
+            SDL_SCANCODE_A
+        };
+
         SDL_Texture  *tex{};
         SDL_Texture  *bgTex{};
         SDL_Texture  *pauseTex{};
@@ -119,7 +141,7 @@ namespace game {
 
         UIScreen   ui      = UIScreen::Main;
         GameMode   mode    = GameMode::None;        // remembered at GameModes screen
-        PlayerSide players = PlayerSide::None;      // remembered at Players screen
+        Players players = Players::None;      // remembered at Players screen
         bool       appQuit = false;   // global kill-switch
 
     };

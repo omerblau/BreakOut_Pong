@@ -119,10 +119,6 @@ namespace game {
         SDL_srand(time(nullptr));
 
         prepareBoxWorld();
-        prepareWalls();
-        createBall();
-        createPads();
-        placeBricks();
     }
 
     Game::~Game() {
