@@ -14,6 +14,15 @@ using namespace std;
 using namespace bagel;
 
 namespace game {
+
+
+    void Game::addSideTag(ent_type e, bool isRight) {
+        if (isRight)
+            World::addComponent(e, TagRight{});
+        else
+            World::addComponent(e, TagLeft{});
+    }
+
     bool Game::valid() const {
         return tex != nullptr && bgTex != nullptr && pauseTex != nullptr &&
                leftWinTex != nullptr && rightWinTex != nullptr;
@@ -64,7 +73,7 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
-    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k) const {
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys & k, bool IsRight) const {
         b2BodyDef padBodyDef = b2DefaultBodyDef();
         padBodyDef.type = b2_kinematicBody;
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
@@ -90,6 +99,9 @@ namespace game {
             Intent{},
             k
         );
+        // Add the tag separately
+        addSideTag(padEntity.entity(), IsRight);
+
         b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
     }
 
@@ -98,18 +110,21 @@ namespace game {
                       SDL_SCANCODE_W,
                       SDL_SCANCODE_S,
                       SDL_SCANCODE_D,
-                      SDL_SCANCODE_A
-                  });
+                      SDL_SCANCODE_A,
+                  },
+                  false);
         createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
                       SDL_SCANCODE_UP,
                       SDL_SCANCODE_DOWN,
                       SDL_SCANCODE_RIGHT,
                       SDL_SCANCODE_LEFT,
-
-                  });
+                  }
+                  , true);
     }
 
-    void Game::createBrick(const SDL_FPoint &pos, int row) const {
+
+
+    void Game::createBrick(const SDL_FPoint &pos, int row, bool isRight) const {
         // physics body
         b2BodyDef def = b2DefaultBodyDef();
         def.type = b2_staticBody;
@@ -152,6 +167,10 @@ namespace game {
             Collider{body},
             Breakable{}
         );
+
+        // Add the tag separately
+        addSideTag(brickEntity.entity(), isRight);
+
         b2Body_SetUserData(body, new ent_type{brickEntity.entity()});
     }
 
@@ -172,7 +191,7 @@ namespace game {
                     side_margin + static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos, r + c);
+                createBrick(pos, r + c, false);
             }
         }
 
@@ -183,7 +202,7 @@ namespace game {
                     WIN_WIDTH - side_margin - static_cast<float>(c) * (bw + spacing),
                     top_margin + static_cast<float>(r) * (bh + spacing)
                 };
-                createBrick(pos, r + 2 - c);
+                createBrick(pos, r + 2 - c, true);
             }
         }
     }
@@ -511,10 +530,11 @@ namespace game {
             EnlargePU{},
             Falling{vx,side}
         );
+        addSideTag(e.entity(), side); // add tag for left/right player to collect
         b2Body_SetUserData(b, new ent_type{e.entity()});
 
         /* give the Box2D body the same velocity (m/s) */
-        b2Body_SetLinearVelocity(b, { vx / BOX_SCALE, 0.0f });
+        b2Body_SetLinearVelocity(b, { vx, 0.0f });
     }
 
 
@@ -552,6 +572,7 @@ namespace game {
         auto isBall    =[&](ent_type e){return World::mask(e).test(Component<Ball>::Bit);};
         auto isPowerUp =[&](ent_type e){return World::mask(e).test(Component<Falling>::Bit);};
         auto isPaddle  =[&](ent_type e){return World::mask(e).test(Component<Intent>::Bit);};
+        auto isTimer  =[&](ent_type e){return World::mask(e).test(Component<PUtimer>::Bit);};
 
 
         auto handlePair = [&](b2ShapeId sa, b2ShapeId sb)
@@ -576,11 +597,33 @@ namespace game {
                 ent_type pad = isPaddle(*ea)  ? *ea : *eb;
                 ent_type pu  = isPowerUp(*ea) ? *ea : *eb;
 
-                enlargePaddle(pad);         // ⬅️  חדש
+                // Only allow pickup if they match the same side
+                const bool padIsLeft = World::mask(pad).test(Component<TagLeft>::Bit);
+                const bool puIsLeft  = World::mask(pu).test(Component<TagLeft>::Bit);
+
+                if (padIsLeft != puIsLeft)
+                    return; // not the same side, ignore
+
+                enlargePaddle(pad);         // enlarge the paddle
+                World::addComponent(pad, PUtimer{3});
 
                 b2BodyId bpu = World::getComponent<Collider>(pu).body;
                 b2DestroyBody(bpu);
                 World::destroyEntity(pu);
+            }
+
+
+            /* ---------- Paddle × Ball ---------- */
+            if ((isPaddle(*ea) && isBall(*eb)) ||
+                (isPaddle(*eb) && isBall(*ea)))
+            {
+                ent_type pad = isPaddle(*ea) ? *ea : *eb;
+
+                if (isTimer(pad)) {
+                    auto& timer = World::getComponent<PUtimer>(pad);
+                    timer.hitsLeft--;
+                    std::cout << "Paddle was hit! Remaining hits: " << timer.hitsLeft << std::endl;
+                }
             }
 
         };
@@ -603,28 +646,27 @@ namespace game {
 
     }
 
-
     void Game::enlargePaddle(ent_type pad) const
     {
-        /* --- 1. Sprite חדש --- */
-        auto& dr = World::getComponent<Drawable>(pad);
-        dr.part = PAD_LONG_COORDS;
-        dr.size = { PAD_LONG_COORDS.w * PAD_TEX_SCALE,
-                    PAD_LONG_COORDS.h * PAD_TEX_SCALE };
+        // Get old body
+        b2BodyId oldBody = World::getComponent<Collider>(pad).body;
 
-        /* --- 2. גוף Box2D חדש --- */
-        b2BodyId body = World::getComponent<Collider>(pad).body;
+        // Save position and rotation
+        b2Transform tf = b2Body_GetTransform(oldBody);
+        b2Vec2 pos = tf.p;
+        float angle = b2Rot_GetAngle(tf.q);
 
-        /* א. מוחקים את כל הצורות הישנות */
-        // for (b2ShapeId s = b2Body_GetFirstShapeId(body);  // ⬅️  שם הפונקציה הנכון
-        //      b2Shape_IsValid(s); )
-        // {
-        //     b2ShapeId next = b2Shape_GetNext(s);          // שומרים לפני ההשמדה
-        //     b2DestroyShape(s);
-        //     s = next;
-        // }
+        // Destroy the old body
+        b2DestroyBody(oldBody);
 
-        /* ב. יוצרים צורה ארוכה */
+        // Create new, larger body
+        b2BodyDef def = b2DefaultBodyDef();
+        def.type = b2_kinematicBody;
+        def.position = pos;
+        b2BodyId newBody = b2CreateBody(boxWorld, &def);
+        b2Body_SetTransform(newBody, pos, b2Rot{std::cos(angle), std::sin(angle)});
+
+        // Add new shape
         b2ShapeDef sd = b2DefaultShapeDef();
         sd.density = 0;
         sd.enableSensorEvents = true;
@@ -632,10 +674,19 @@ namespace game {
         const float hx = PAD_LONG_COORDS.w * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
         const float hy = PAD_LONG_COORDS.h * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
         b2Polygon box = b2MakeBox(hx, hy);
-        b2CreatePolygonShape(body, &sd, &box);
+        b2CreatePolygonShape(newBody, &sd, &box);
 
-        /* (ג. רשות) הוספת טיימר להחזרת הגודל המקורי בעתיד
-           World::addComponent(pad, PUtimer{5.0f, dr.size}); */
+        // Update the collider component to point to the new body
+        World::getComponent<Collider>(pad).body = newBody;
+
+        // Set user data again
+        b2Body_SetUserData(newBody, new ent_type{pad});
+
+        // Update the sprite
+        auto& dr = World::getComponent<Drawable>(pad);
+        dr.part = PAD_LONG_COORDS;
+        dr.size = { PAD_LONG_COORDS.w * PAD_TEX_SCALE,
+                    PAD_LONG_COORDS.h * PAD_TEX_SCALE };
     }
 
 
@@ -676,7 +727,7 @@ namespace game {
                         {d.size.x, d.size.y}
                     };
 
-                    if (++bricksBroken % 2 == 0) {
+                    if (++bricksBroken % 5 == 0) {
                         std::cout << "brick cunt!" << bricksBroken << std::endl;
                         createPowerUp(POWERUP_ENLARGE, { World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
                     }
@@ -688,8 +739,7 @@ namespace game {
 
 
 
-    void Game::powerup_move_system() const
-    {
+    void Game::powerup_move_system() {
         static const Mask m = MaskBuilder()
                 .set<Falling>()
                 .set<Transform>()
@@ -713,60 +763,88 @@ namespace game {
                     World::destroyEntity(e);
             }
     }
-    //
-    // void Game::powerup_collision_system() const
-    // {
-    //     static const Mask padM = MaskBuilder()
-    //         .set<Collider>().set<Drawable>().build();    // paddle = יש Intent
-    //     static const Mask puM  = MaskBuilder()
-    //         .set<Falling>().set<Collider>().build();     // power-up = Falling
-    //
-    //     const b2ContactEvents& ev = b2World_GetContactEvents(boxWorld);
-    //
-    //     /* helper – receives two shapes, בודק אם זה pad×pu ומשמיד */
-    //     auto handle = [&](b2ShapeId sa, b2ShapeId sb)
-    //     {
-    //         b2BodyId ba = b2Shape_GetBody(sa);
-    //         b2BodyId bb = b2Shape_GetBody(sb);
-    //         auto* ea = static_cast<ent_type*>(b2Body_GetUserData(ba));
-    //         auto* eb = static_cast<ent_type*>(b2Body_GetUserData(bb));
-    //         if (!ea || !eb) return;
-    //
-    //         /* נבדוק בשני הכיוונים: */
-    //         for (auto [pad, pu] : std::array<std::pair<ent_type*,ent_type*>,2>{{{ea,eb},{eb,ea}}})
-    //         {
-    //             if (!World::mask(*pad).test(padM)) continue;
-    //             if (!World::mask(*pu ).test(puM )) continue;
-    //
-    //             World::destroyEntity(*pu);          // collected!
-    //             // TODO: enlarge paddle, start timer...
-    //         }
-    //     };
-    //
-    //     /* beginEvents – תמיד קיימים */
-    //     for (int i = 0; i < ev.beginCount; ++i)
-    //         handle(ev.beginEvents[i].shapeIdA, ev.beginEvents[i].shapeIdB);
-    // }
 
 
 
 
-    void Game::enlarge_timer_system() const {
-        static const Mask m = MaskBuilder().set<PUtimer>().set<Drawable>().build();
-        const float dt = GAME_FRAME / 1000.f;
 
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id)
-            if (World::mask(e).test(m)) {
-                auto& et = World::getComponent<PUtimer>(e);
-                et.ballHit -= dt;
-                if (et.ballHit >= 5.0f) {
-                    auto& dr = World::getComponent<Drawable>(e);
-                    //dr.size = et.origSize;
-                    World::delComponent<PUtimer>(e);
-                    // גם צריך לכווץ את גוף Box2D חזרה (בדומה להצמחה)
-                }
+
+
+    void Game::pu_timer_system() const {
+        static const Mask m = MaskBuilder()
+                .set<PUtimer>()
+                .set<Drawable>()
+                .set<Collider>()
+                .build();
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(m)) continue;
+
+            auto& timer = World::getComponent<PUtimer>(e);
+
+            if (timer.hitsLeft > 0)
+                continue;
+
+            // What to do when the timer expires?
+            if (World::mask(e).test(Component<Intent>::Bit)) {
+                // It's a paddle - shrink it
+                shrinkPaddle(e);
+            } else if (World::mask(e).test(Component<Ball>::Bit)) {
+                // It's a ball - remove it
+                b2BodyId body = World::getComponent<Collider>(e).body;
+                b2DestroyBody(body);
+                World::destroyEntity(e);
             }
+
+            // Remove the timer
+            World::delComponent<PUtimer>(e);
+        }
     }
+
+    void Game::shrinkPaddle(ent_type pad) const {
+        // Get old body
+        b2BodyId oldBody = World::getComponent<Collider>(pad).body;
+
+        // Save position and rotation
+        b2Transform tf = b2Body_GetTransform(oldBody);
+        b2Vec2 pos = tf.p;
+        float angle = b2Rot_GetAngle(tf.q);
+
+        // Destroy old body
+        b2DestroyBody(oldBody);
+
+        // Create new, smaller body
+        b2BodyDef def = b2DefaultBodyDef();
+        def.type = b2_kinematicBody;
+        def.position = pos;
+        b2BodyId newBody = b2CreateBody(boxWorld, &def);
+        b2Body_SetTransform(newBody, pos, b2Rot{std::cos(angle), std::sin(angle)});
+
+        // Add small shape
+        b2ShapeDef sd = b2DefaultShapeDef();
+        sd.density = 0;
+        sd.enableSensorEvents = true;
+
+        const float hx = PAD_COORDS.w * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
+        const float hy = PAD_COORDS.h * PAD_TEX_SCALE / BOX_SCALE / 2.0f;
+        b2Polygon box = b2MakeBox(hx, hy);
+        b2CreatePolygonShape(newBody, &sd, &box);
+
+        // Update the collider component to point to the new body
+        World::getComponent<Collider>(pad).body = newBody;
+
+        // Set user data again
+        b2Body_SetUserData(newBody, new ent_type{pad});
+
+        // Update the sprite
+        auto& dr = World::getComponent<Drawable>(pad);
+        dr.part = PAD_COORDS;
+        dr.size = {
+            PAD_COORDS.w * PAD_TEX_SCALE,
+            PAD_COORDS.h * PAD_TEX_SCALE
+        };
+    }
+
 
 
 
@@ -1194,17 +1272,17 @@ namespace game {
             if (gameState == GameState::PLAYING) {
                 input_system();
                 move_system();
+                powerup_move_system();
                 box_system();
                 constraints_system();
                 collision_detector_system();
+                pu_timer_system();
                 brick_system();
                 const_cast<Game*>(this)->score_system();
                 cleanup_collision_system();
             }
 
 
-            //powerup_move_system();
-            //enlarge_timer_system();
 
             // todo: implement reset on all bricks lost (maybe?)
             draw_system();

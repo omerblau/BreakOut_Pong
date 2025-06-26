@@ -37,7 +37,9 @@ namespace game {
 
     using Falling      = struct { float vy; bool playerCollectSide;}; // constant vertical velocity (px/s) for power ups
     using EnlargePU    = struct {}; // tag – specific effect: enlarge paddle
-    using PUtimer = struct { float ballHit; }; // countdown timer for power up effects
+    using PUtimer = struct { float hitsLeft; }; // countdown timer for power up effects
+    using TagLeft = struct {}; // tag for left player power up
+    using TagRight = struct {}; // tag for right player power up
 
 
     class Game {
@@ -81,7 +83,7 @@ namespace game {
         bool poll_quit() const;
         void windowClosedClicked();
 
-        void powerup_move_system() const;
+        void powerup_move_system();
 
         void power_up_system() const;
 
@@ -89,10 +91,17 @@ namespace game {
 
         void enlarge_timer_system() const;
 
+        static void addSideTag(ent_type e, bool isRight) ;
+
+
+        void pu_timer_system() const;
+
+        void shrinkPaddle(ent_type pad) const;
+
         /// factories
         void createBall() const;
-        void createBrick(const SDL_FPoint &pos, int row) const;
-        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&) const;
+        void createBrick(const SDL_FPoint &pos, int row, bool isRight) const;
+        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&, bool) const;
         void pace_frame() const;
         void pace_frame_test(Uint64 &start); //todo: remove before submission
 
@@ -133,7 +142,7 @@ namespace game {
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
-        static constexpr float PU_SPEED_PPS = 10.0f * SPEED_MULTIPLIER;  // pixels per second
+        static constexpr float PU_SPEED_PPS = 4.0f * SPEED_MULTIPLIER;  // pixels per second
 
         static constexpr bool RIGHT_PLAYER_POWERUP = false;
         static constexpr bool LEFT_PLAYER_POWERUP = true;
