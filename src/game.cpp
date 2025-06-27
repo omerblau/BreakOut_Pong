@@ -504,7 +504,7 @@ namespace game {
     // }
 
 
-    void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const {
+    void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos, PUKind kind) const {
         // 1. physics (sensor)
         b2BodyDef bd = b2DefaultBodyDef();
         bd.type          = b2_dynamicBody;
@@ -530,8 +530,15 @@ namespace game {
             EnlargePU{},
             Falling{vx,side}
         );
+
         addSideTag(e.entity(), side); // add tag for left/right player to collect
         b2Body_SetUserData(b, new ent_type{e.entity()});
+
+        switch(kind){
+            case PUKind::EnlargeSelf: e.add(PU_EnlargeSelf{});  break;
+            case PUKind::ShrinkEnemy: e.add(PU_ShrinkEnemy{});  break;
+            case PUKind::ExtraBall:   e.add(PU_ExtraBall{});    break;
+        }
 
         /* give the Box2D body the same velocity (m/s) */
         b2Body_SetLinearVelocity(b, { vx, 0.0f });
@@ -727,15 +734,49 @@ namespace game {
                         {d.size.x, d.size.y}
                     };
 
-                    if (++bricksBroken % 5 == 0) {
+                    if (++bricksBroken % 2 == 0) {
                         std::cout << "brick cunt!" << bricksBroken << std::endl;
-                        createPowerUp(POWERUP_ENLARGE, { World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
+                        createPowerUpRotating({ World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
                     }
 
                 }
             }
         }
     }
+
+
+    constexpr const SDL_FRect& spriteFor(PUKind k)
+    {
+        for (auto& [kind, rect] : spriteByKind)
+            if (kind == k) return rect;
+        // fallback
+        return POWERUP_ENLARGE;
+    }
+
+    // --- power-up creation helper ---
+
+    void Game::createPowerUpRotating(const SDL_FPoint& pos) const
+    {
+        static constexpr std::array<PUKind, 4> kinds = {
+            PUKind::EnlargeSelf,
+            PUKind::ShrinkEnemy,
+            PUKind::Coin,
+            PUKind::ExtraBall
+        };
+
+        static size_t idx = 0;
+
+
+        PUKind kind = kinds[idx];
+        const SDL_FRect& sprite = spriteFor(kind);
+
+        createPowerUp(sprite, pos, kind);
+
+        idx = (idx + 1) % kinds.size();
+    }
+
+
+
 
 
 

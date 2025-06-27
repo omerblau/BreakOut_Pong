@@ -1,6 +1,8 @@
 // This is game.h file
 
 #pragma once
+#include <array>
+
 #include "bagel.h"
 #include "atlas_bricks_ball.h"
 #include <SDL3/SDL.h>
@@ -35,11 +37,29 @@ namespace game {
         RIGHT_WIN
     };
 
+    enum class PUKind {
+        EnlargeSelf,
+        ShrinkEnemy,
+        Coin,
+        ExtraBall
+    };
+
+    inline constexpr std::array spriteByKind{
+        std::pair{PUKind::EnlargeSelf, POWERUP_ENLARGE},
+        std::pair{PUKind::ShrinkEnemy, POWERUP_SHRINK},
+        std::pair{PUKind::Coin, POWERUP_COIN},
+        std::pair{PUKind::ExtraBall, POWERUP_4_COORDS}
+    };
+
     using Falling      = struct { float vy; bool playerCollectSide;}; // constant vertical velocity (px/s) for power ups
     using EnlargePU    = struct {}; // tag – specific effect: enlarge paddle
     using PUtimer = struct { float hitsLeft; }; // countdown timer for power up effects
     using TagLeft = struct {}; // tag for left player power up
     using TagRight = struct {}; // tag for right player power up
+    using PU_EnlargeSelf = struct {};
+    using PU_ShrinkEnemy = struct {};
+    using PU_ExtraBall = struct {};
+
 
 
     class Game {
@@ -71,6 +91,8 @@ namespace game {
         void enlargePaddle(ent_type pad) const;
 
         void brick_system() const;
+
+
         void score_system();
         void cleanup_collision_system() const;
 
@@ -82,6 +104,8 @@ namespace game {
         void ball_speed_cap() const;  // velocity limiter
         bool poll_quit() const;
         void windowClosedClicked();
+
+        void createPowerUpRotating(const SDL_FPoint &pos) const;
 
         void powerup_move_system();
 
@@ -111,7 +135,7 @@ namespace game {
         void prepareWalls() const;
         void createPads() const;
         void placeBricks() const;
-        void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos) const;
+        void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos, PUKind kind) const;
 
 
 
@@ -164,6 +188,10 @@ namespace game {
         GameMode   mode    = GameMode::None;        // remembered at GameModes screen
         PlayerSide players = PlayerSide::None;      // remembered at Players screen
         bool       appQuit = false;   // global kill-switch
+
+
+
+
 
     };
 };
