@@ -906,7 +906,7 @@ namespace game {
                         {d.size.x, d.size.y}
                     };
 
-                    if (++bricksBroken % 1 == 0) {
+                    if (++bricksBroken % 3 == 0) {
                         std::cout << "brick cunt!" << bricksBroken << std::endl;
                         createPowerUpRotating({ World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
                     }
