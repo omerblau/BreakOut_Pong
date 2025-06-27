@@ -93,9 +93,13 @@ namespace game {
 
         void applyPowerUp(ent_type pad, ent_type pu) const;
 
+        void spawnExtraBallAt(const SDL_FPoint &pos, bool isRight) const;
+
         SDL_FPoint getPaddlePosition(ent_type pad) const;
 
         void enlargePaddle(ent_type pad) const;
+
+        void shrinkPadel(ent_type pad) const;
 
         void brick_system() const;
 
@@ -127,7 +131,7 @@ namespace game {
 
         void pu_timer_system() const;
 
-        void shrinkPaddle(ent_type pad) const;
+        void paddleBackToOG(ent_type pad) const;
 
         /// factories
         void createBall() const;
