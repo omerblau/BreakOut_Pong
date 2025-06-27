@@ -611,12 +611,13 @@ namespace game {
                 if (padIsLeft != puIsLeft)
                     return; // not the same side, ignore
 
-                enlargePaddle(pad);         // enlarge the paddle
+                applyPowerUp(pad, pu);
+
                 World::addComponent(pad, PUtimer{3});
 
-                b2BodyId bpu = World::getComponent<Collider>(pu).body;
-                b2DestroyBody(bpu);
-                World::destroyEntity(pu);
+                // b2BodyId bpu = World::getComponent<Collider>(pu).body;
+                // b2DestroyBody(bpu);
+                // World::destroyEntity(pu);
             }
 
 
@@ -652,6 +653,43 @@ namespace game {
 
 
     }
+
+
+    // In Game.cpp:
+
+    void Game::applyPowerUp(ent_type pad, ent_type pu) const
+    {
+        // Determine which kind of power-up this is and apply its effect:
+        if (World::mask(pu).test(Component<PU_EnlargeSelf>::Bit)) {
+            // Enlarge self
+            enlargePaddle(pad);
+        }
+        else if (World::mask(pu).test(Component<PU_ShrinkEnemy>::Bit)) {
+            // Shrink enemy paddle:
+            // find opponent
+            //ent_type opp = findOpponentOf(pad);
+            //shrinkPaddle(opp);
+        }
+        else if (World::mask(pu).test(Component<PU_ExtraBall>::Bit)) {
+            // Spawn an extra ball for this player
+            //spawnExtraBallAt(getPaddlePosition(pad));
+        }
+        else if (World::mask(pu).test(Component<PU_Coin>::Bit)) {
+            // e.g. increment score
+            //addScore(pad, 1);
+        }
+
+        // Cleanup the power-up entity:
+        b2BodyId body = World::getComponent<Collider>(pu).body;
+        b2DestroyBody(body);
+        World::destroyEntity(pu);
+    }
+
+    // get center position of a paddle
+    SDL_FPoint Game::getPaddlePosition(ent_type pad) const {
+        return World::getComponent<Transform>(pad).p;
+    }
+
 
     void Game::enlargePaddle(ent_type pad) const
     {

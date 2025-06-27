@@ -58,6 +58,7 @@ namespace game {
     using TagRight = struct {}; // tag for right player power up
     using PU_EnlargeSelf = struct {};
     using PU_ShrinkEnemy = struct {};
+    using PU_Coin = struct {};
     using PU_ExtraBall = struct {};
 
 
@@ -87,6 +88,12 @@ namespace game {
         void move_system() const;
         void draw_system() const;
         void collision_detector_system() const;
+
+        ent_type findOpponentOf(ent_type pad) const;
+
+        void applyPowerUp(ent_type pad, ent_type pu) const;
+
+        SDL_FPoint getPaddlePosition(ent_type pad) const;
 
         void enlargePaddle(ent_type pad) const;
 
