@@ -193,7 +193,7 @@ namespace game {
         static constexpr bool LEFT_PLAYER_POWERUP = true;
 
 
-        static constexpr int HITS_NUM_PU_CREATION = 1;
+        static constexpr int HITS_NUM_PU_CREATION = 3;
 
 
         static constexpr Keys RIGHT_KEYS = {
