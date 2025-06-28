@@ -14,6 +14,10 @@ using namespace std;
 using namespace bagel;
 
 namespace game {
+    /// !!! the reason these below are not split in to different files is as follows
+    /// the bagel.h engine uses a macro to give id's to entities and bit's location for mask based on instances of a template class instance
+    /// these start from 0 for each new file.
+    /// ─── Factory functions ──────────────────────────────────────────
 
 
     void Game::addSideTag(ent_type e, bool isRight) {
@@ -23,18 +27,15 @@ namespace game {
             World::addComponent(e, TagLeft{});
     }
 
-    bool Game::valid() const {
-        return tex != nullptr && bgTex != nullptr && pauseTex != nullptr &&
-               leftWinTex != nullptr && rightWinTex != nullptr;
-    }
 
     void Game::createBall() const {
         b2BodyDef ballBodyDef = b2DefaultBodyDef();
         ballBodyDef.type = b2_dynamicBody;
+        ballBodyDef.isBullet = true;
         ballBodyDef.fixedRotation = false;
         ballBodyDef.position = {
-            static_cast<int>(WIN_WIDTH / 2) / BOX_SCALE,
-            static_cast<int>(WIN_HEIGHT / 2) / BOX_SCALE
+            WIN_WIDTH / 2 / BOX_SCALE,
+            WIN_HEIGHT / 2 / BOX_SCALE
         };
 
         b2ShapeDef ballShapeDef = b2DefaultShapeDef();
@@ -73,7 +74,7 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
-    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys & k, bool IsRight) const {
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const PaddleSide side, bool IsRight) const {
         b2BodyDef padBodyDef = b2DefaultBodyDef();
         padBodyDef.type = b2_kinematicBody;
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
@@ -91,7 +92,7 @@ namespace game {
             r.w * PAD_TEX_SCALE / BOX_SCALE / 2,
             r.h * PAD_TEX_SCALE / BOX_SCALE / 2);
         b2CreatePolygonShape(padBody, &padShapeDef, &padBox);
-        const Entity padEntity = Entity::create();
+        Entity padEntity = Entity::create(); // may be const
         padEntity.addAll(
             Transform{{}, 0},
             Drawable{r, {r.w * PAD_TEX_SCALE, r.h * PAD_TEX_SCALE}},
@@ -102,24 +103,18 @@ namespace game {
         // Add the tag separately
         addSideTag(padEntity.entity(), IsRight);
 
+        if (side == PaddleSide::Left && players == Players::Single)
+            padEntity.add(AI{});
         b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
     }
 
     void Game::createPads() const {
-        createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
-                      SDL_SCANCODE_W,
-                      SDL_SCANCODE_S,
-                      SDL_SCANCODE_D,
-                      SDL_SCANCODE_A,
-                  },
-                  false);
-        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {
-                      SDL_SCANCODE_UP,
-                      SDL_SCANCODE_DOWN,
-                      SDL_SCANCODE_RIGHT,
-                      SDL_SCANCODE_LEFT,
-                  }
-                  , true);
+        if (players == Players::Single)
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {}, PaddleSide::Left, false);
+        else
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, LEFT_KEYS, PaddleSide::Left, false);
+
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS, PaddleSide::Right, true);
     }
 
 
@@ -207,99 +202,6 @@ namespace game {
         }
     }
 
-    bool Game::prepareWindowAndTexture() {
-        if (!SDL_Init(SDL_INIT_VIDEO)) {
-            cout << SDL_GetError() << endl;
-            return false;
-        }
-
-        if (!SDL_CreateWindowAndRenderer(
-            "Breakout Pong", WIN_WIDTH, WIN_HEIGHT, 0, &win, &ren)) {
-            cout << SDL_GetError() << endl;
-            SDL_Quit();
-            return false;
-        }
-
-        bgTex = IMG_LoadTexture(ren, "res/bg.png");
-        if (!bgTex) {
-            std::cerr << "IMG_LoadTexture Error: " << SDL_GetError() << "\n";
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-
-        SDL_Surface *surf = IMG_Load("res/spritesheet.png");
-        if (surf == nullptr) {
-            cout << SDL_GetError() << endl;
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        tex = SDL_CreateTextureFromSurface(ren, surf);
-        SDL_DestroySurface(surf);
-
-        if (tex == nullptr) {
-            cout << SDL_GetError() << endl;
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load pause texture
-        pauseTex = IMG_LoadTexture(ren, "res/pause.png");
-        if (!pauseTex) {
-            std::cerr << "Failed to load pause.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load left win texture
-        leftWinTex = IMG_LoadTexture(ren, "res/left_win.png");
-        if (!leftWinTex) {
-            std::cerr << "Failed to load left_win.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(pauseTex);
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        // Load right win texture
-        rightWinTex = IMG_LoadTexture(ren, "res/right_win.png");
-        if (!rightWinTex) {
-            std::cerr << "Failed to load right_win.png: " << SDL_GetError() << "\n";
-            SDL_DestroyTexture(leftWinTex);
-            SDL_DestroyTexture(pauseTex);
-            SDL_DestroyTexture(tex);
-            SDL_DestroyTexture(bgTex);
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(win);
-            SDL_Quit();
-            return false;
-        }
-
-        return true;
-    }
-
-    void Game::prepareBoxWorld() {
-        b2WorldDef worldDef = b2DefaultWorldDef();
-        worldDef.gravity = {0, 0};
-        boxWorld = b2CreateWorld(&worldDef);
-    }
-
     void Game::prepareWalls() const {
         /* ---------- 1. Body & shape templates ---------- */
         b2BodyDef bodyDef = b2DefaultBodyDef();
@@ -356,6 +258,7 @@ namespace game {
         makeGoalWall(W + T, H * 0.5f, T, H * 0.5f, false);
     }
 
+    /// ─── ECS systems ───────────────────────────────────────────
     void Game::box_system() const {
         static const Mask mask = MaskBuilder()
                 .set<Collider>()
@@ -399,6 +302,136 @@ namespace game {
                 i.down = keys[k.down];
                 i.tilt_up = keys[k.tilt_up];
                 i.tilt_down = keys[k.tilt_down];
+            }
+        }
+    }
+
+    // void Game::ai_input_system() const {
+    //     if (players != Players::Single) return;
+    //
+    //     Mask ballMask = MaskBuilder()
+    //         .set<Ball>()
+    //         .set<Transform>()
+    //         .build();
+    //
+    //     Mask aiPaddleMask = MaskBuilder()
+    //         .set<Transform>()
+    //         .set<Intent>()
+    //         .set<AI>()
+    //         .build();
+    //
+    //     // Get ball's position
+    //     SDL_FPoint ballPos{};
+    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+    //         if (!World::mask(e).test(ballMask)) continue;
+    //         const auto &t = World::getComponent<Transform>(e);
+    //         ballPos = t.p;
+    //         break;
+    //     }
+    //
+    //     if (ballPos.x > WIN_WIDTH / 2) return;
+    //
+    //     // For each AI-controlled paddle, update its Intent
+    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+    //         if (!World::mask(e).test(aiPaddleMask)) continue;
+    //         const auto &t = World::getComponent<Transform>(e);
+    //         auto &i = World::getComponent<Intent>(e);
+    //         i.up = i.down = false;
+    //
+    //         const float tolerance = 10.0f; // deadzone
+    //         if (ballPos.y < t.p.y - tolerance) {
+    //             i.up = true;
+    //         } else if (ballPos.y > t.p.y + tolerance) {
+    //             i.down = true;
+    //         }
+    //
+    //         // Optional: Add randomness for human-like error
+    //         // if (rand() % 100 < 5) i.up = i.down = false;
+    //     }
+    // }
+
+    void Game::ai_input_system() const {
+        if (players != Players::Single) return;
+
+        Mask ballMask = MaskBuilder()
+            .set<Ball>()
+            .set<Transform>()
+            .set<Collider>()
+            .build();
+
+        Mask aiMask = MaskBuilder()
+            .set<Transform>()
+            .set<Intent>()
+            .set<AI>()
+            .build();
+
+        // Ball state
+        SDL_FPoint ballPos{};
+        b2Vec2 ballVel{};
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(ballMask)) continue;
+            const auto &t = World::getComponent<Transform>(e);
+            const auto &c = World::getComponent<Collider>(e);
+
+            ballPos = t.p;
+            ballVel = b2Body_GetLinearVelocity(c.body);
+            break;
+        }
+
+        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (!World::mask(e).test(aiMask)) continue;
+
+            const auto &t = World::getComponent<Transform>(e);
+            auto &i = World::getComponent<Intent>(e);
+            auto &ai = World::getComponent<AI>(e);
+
+            float paddleX = t.p.x;
+
+            // Reset AI target if ball moves away
+            if (ballVel.x > 0 && ai.targetY != -1.0f) {
+                ai.targetY = -1.0f;
+            }
+
+            // Calculate intercept Y if ball is coming toward paddle and no target set
+            if (ballVel.x < 0 && ai.targetY == -1.0f) {
+                float x = ballPos.x;
+                float y = ballPos.y;
+                float vx = ballVel.x;
+                float vy = ballVel.y;
+
+                const float top = 0.0f;
+                const float bottom = static_cast<float>(WIN_HEIGHT);
+
+                while (x > paddleX) {
+                    float timeToWall = (vy > 0) ? (bottom - y) / vy : (top - y) / vy;
+                    float timeToPaddle = (paddleX - x) / vx;
+
+                    float dt = std::min(timeToWall, timeToPaddle);
+
+                    x += vx * dt;
+                    y += vy * dt;
+
+                    if (y <= top || y >= bottom) {
+                        vy = -vy;
+                        y = std::clamp(y, top, bottom);
+                    }
+
+                    if (x <= paddleX) break;
+                }
+
+                ai.targetY = y;
+            }
+
+            // Move paddle toward target
+            i.up = i.down = false;
+            if (ai.targetY != -1.0f) {
+                const float tolerance = 10.0f;
+                if (ai.targetY < t.p.y - tolerance) {
+                    i.up = true;
+                } else if (ai.targetY > t.p.y + tolerance) {
+                    i.down = true;
+                }
             }
         }
     }
@@ -474,34 +507,34 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
-    // void Game::collision_detector_system() const {
-    //     static const Mask mask = MaskBuilder()
-    //             .set<Collider>()
-    //             .build();
-    //     const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
-    //     for (int i = 0; i < events.beginCount; ++i) {
-    //         std::cout << "Collision detected between: " << std::endl;
-    //         b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
-    //         b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
-    //
-    //         void* userData1 = b2Body_GetUserData(e1);
-    //         void* userData2 = b2Body_GetUserData(e2);
-    //
-    //         if (userData1) {
-    //             ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
-    //             if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
-    //                 World::addComponent(entity1, IsCollision{});
-    //             }
-    //         }
-    //
-    //         if (userData2) {
-    //             ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
-    //             if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
-    //                 World::addComponent(entity2, IsCollision{});
-    //             }
-    //         }
-    //     }
-    // }
+    /*void Game::collision_detector_system() const {
+        static const Mask mask = MaskBuilder()
+                .set<Collider>()
+                .build();
+        const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
+        for (int i = 0; i < events.beginCount; ++i) {
+            std::cout << "Collision detected between: " << std::endl;
+            b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
+            b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
+
+            void* userData1 = b2Body_GetUserData(e1);
+            void* userData2 = b2Body_GetUserData(e2);
+
+            if (userData1) {
+                ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
+                if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
+                    World::addComponent(entity1, IsCollision{});
+                }
+            }
+
+            if (userData2) {
+                ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
+                if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
+                    World::addComponent(entity2, IsCollision{});
+                }
+            }
+        }
+    }*/
 
 
     void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos, PUKind kind) const {
@@ -1104,6 +1137,7 @@ namespace game {
         }
     }
 
+    /// ─── Constraint helpers ────────────────────────────────────────
     void Game::paddle_bounds() const {
         static const Mask paddleMask = MaskBuilder()
                 .set<Collider>()
@@ -1180,62 +1214,7 @@ namespace game {
         }
     }
 
-    bool Game::poll_quit() const {
-        // This is now just a flag check, actual polling happens in handle_game_state_input
-        return false;
-    }
-
-    void Game::windowClosedClicked() {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_EVENT_QUIT)
-                appQuit = true;
-        }
-    }
-
-    void Game::handle_game_state_input() {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_EVENT_QUIT ||
-                (e.type == SDL_EVENT_KEY_DOWN &&
-                 e.key.scancode == SDL_SCANCODE_ESCAPE)) {
-                // Set a quit flag that will be checked by poll_quit
-                const_cast<Game*>(this)->shouldQuit = true;
-                continue;
-            }
-
-            if (e.type == SDL_EVENT_KEY_DOWN) {
-                switch (gameState) {
-                    case GameState::PLAYING:
-                        if (e.key.scancode == SDL_SCANCODE_P) {
-                            gameState = GameState::PAUSED;
-                        }
-                        break;
-
-                    case GameState::PAUSED:
-                        if (e.key.scancode == SDL_SCANCODE_P) {
-                            gameState = GameState::PLAYING;
-                        } else if (e.key.scancode == SDL_SCANCODE_N) {
-                            reset_game();
-                            gameState = GameState::PLAYING;
-                        }
-                        break;
-
-                    case GameState::LEFT_WIN:
-                    case GameState::RIGHT_WIN:
-                        if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
-                            reset_game();
-                            gameState = GameState::PLAYING;
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-        }
-    }
-
+    /// ─── Entity-lifecycle helpers ──────────────────────────────────
     void Game::destroy_all_entities() {
         // Destroy all entities with colliders first
         static const Mask colliderMask = MaskBuilder()
@@ -1260,185 +1239,9 @@ namespace game {
     void Game::reset_game() {
         // Destroy all game entities
         destroy_all_entities();
-
-        // Recreate the game world
-        prepareWalls();
-        createBall();
-        createPads();
-        placeBricks();
     }
 
-    void Game::pace_frame() const {
-        static Uint32 frameStart = SDL_GetTicks();
-        const Uint64 frameEnd = SDL_GetTicks();
-        const Uint64 elapsed = frameEnd - frameStart;
-        if (elapsed < static_cast<Uint64>(GAME_FRAME))
-            SDL_Delay(static_cast<Uint32>(GAME_FRAME - static_cast<float>(elapsed)));
-        frameStart += static_cast<Uint64>(GAME_FRAME); // schedule next frame
-    }
-
-    void Game::pace_frame_test(Uint64 &start){
-        Uint64 end = SDL_GetTicks();
-        if (end-start < GAME_FRAME) {
-            SDL_Delay(GAME_FRAME - (end-start));
-        }
-        start += GAME_FRAME;
-    }
-
-
-    /// menus
-    SDL_Texture *loadTex(SDL_Renderer *r, const char *file) {
-        SDL_Texture *tx = IMG_LoadTexture(r, file);
-        if (!tx)
-            std::cerr << "IMG_LoadTexture error (" << file << "): "
-                    << SDL_GetError() << '\n';
-        return tx;
-    }
-
-    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
-        for (int i = 0; i < keyCount; ++i)
-            if (keys[i]) return true;
-        return false;
-    }
-
-    void Game::handleMainKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1])
-            ui = UIScreen::GameModes;
-        else if (keys[SDL_SCANCODE_2])
-            ui = UIScreen::Instructions;
-
-    }
-
-    void Game::handleInstructionsKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1])
-            ui = UIScreen::Main;
-    }
-
-    void Game::handleGameModeKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1]) {
-            mode = GameMode::FirstGoal;
-            ui = UIScreen::Players;
-        } else if (keys[SDL_SCANCODE_2]) {
-            mode = GameMode::BreakAll;
-            ui = UIScreen::Players;
-        } else if (keys[SDL_SCANCODE_3]) {
-            ui = UIScreen::Main;
-        }
-    }
-
-    bool Game::handlePlayersKeys(const bool *keys) {
-        if (keys[SDL_SCANCODE_1]) {
-            players = PlayerSide::Single;
-            return true;
-        }
-        if (keys[SDL_SCANCODE_2]) {
-            players = PlayerSide::Two;
-            return true;
-        }
-        if (keys[SDL_SCANCODE_3])
-            ui = UIScreen::GameModes;
-        else if (keys[SDL_SCANCODE_M])
-            ui = UIScreen::Main;
-        return false;
-    }
-
-    void Game::showScreen(UIScreen s) const {
-        // 1. Fetch texture size
-        float imgW{}, imgH{};
-        if (!uiTex[static_cast<int>(s)] ||
-            !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
-            std::cerr << "showScreen: texture missing or size query failed for state "
-                    << static_cast<int>(s) << " – " << SDL_GetError() << '\n';
-            return;
-        }
-
-        // 2. “Cover” scale so the window fills without distortion
-        const float scale = std::max(WIN_WIDTH / imgW,
-                                     WIN_HEIGHT / imgH);
-
-        const SDL_FRect dst{
-            (WIN_WIDTH - imgW * scale) * 0.5f,
-            (WIN_HEIGHT - imgH * scale) * 0.5f,
-            imgW * scale,
-            imgH * scale
-        };
-
-        // 3. Render
-        SDL_RenderClear(ren);
-        SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
-        SDL_RenderPresent(ren);
-    }
-
-    void Game::waitMainLoop() {
-        bool waitKeyRelease = false;
-
-        while (!appQuit) {
-            SDL_PumpEvents();
-            int keyCount = 0;
-            const bool *keys = SDL_GetKeyboardState(&keyCount);
-
-            if (waitKeyRelease) {
-                if (anyKeyStillDown(keys, keyCount)) {
-                    showScreen(ui);
-                    pace_frame();
-                    continue;
-                }
-                waitKeyRelease = false;
-            }
-
-            const UIScreen prev = ui;
-            bool startGame = false; // s
-
-            switch (ui) {
-                case UIScreen::Main: handleMainKeys(keys);
-                    break;
-                case UIScreen::Instructions: handleInstructionsKeys(keys);
-                    break;
-                case UIScreen::GameModes: handleGameModeKeys(keys);
-                    break;
-                case UIScreen::Players: startGame = handlePlayersKeys(keys);
-                    break;
-                default:
-                    break;
-            }
-
-            if (ui != prev)
-                waitKeyRelease = true;
-
-            showScreen(ui);
-            pace_frame();
-
-            if (startGame)
-                return;
-
-            if (keys[SDL_SCANCODE_ESCAPE])
-                appQuit = true;
-            windowClosedClicked();
-        }
-    }
-
-    void Game::launch() {
-        while (!appQuit) {
-            waitMainLoop();
-            if (appQuit)
-                break;
-
-            run();
-        }
-    }
-
-    Game::Game() {
-        if (!prepareWindowAndTexture())
-            return;
-// todo move to prep funciton
-        uiTex[static_cast<int>(UIScreen::Main)] = loadTex(ren, "res/bg_mainMenu.png");
-        uiTex[static_cast<int>(UIScreen::Instructions)] = loadTex(ren, "res/bg_instructions.png");
-        uiTex[static_cast<int>(UIScreen::GameModes)] = loadTex(ren, "res/bg_GameModeMenu.png");
-        uiTex[static_cast<int>(UIScreen::Players)] = loadTex(ren, "res/bg_players.png");
-
-        SDL_srand(time(nullptr));
-
-        prepareBoxWorld();
+    void Game::create_game() const {
         prepareWalls();
         createBall();
         createPads();
