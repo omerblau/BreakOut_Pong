@@ -26,7 +26,12 @@ namespace game {
     using Collider     = struct { b2BodyId body; };
     using Scorer       = struct { b2ShapeId s; };
     using Goal         = struct {bool left, right;};
-    using AI           = struct {float targetY = -1.0f;};
+    using AI           = struct {
+                            float targetY = -1.0f;
+                            int tiltFramesRemaining = 0;
+                            int tiltDirection = 0;  // -1 = up, 1 = down
+                            int cooldownFrames = 1;
+                         };
     using IsCollision  = struct {};
     using Breakable    = struct {};
     using Ball         = struct {};

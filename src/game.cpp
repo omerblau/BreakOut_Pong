@@ -285,50 +285,6 @@ namespace game {
         }
     }
 
-    // void Game::ai_input_system() const {
-    //     if (players != Players::Single) return;
-    //
-    //     Mask ballMask = MaskBuilder()
-    //         .set<Ball>()
-    //         .set<Transform>()
-    //         .build();
-    //
-    //     Mask aiPaddleMask = MaskBuilder()
-    //         .set<Transform>()
-    //         .set<Intent>()
-    //         .set<AI>()
-    //         .build();
-    //
-    //     // Get ball's position
-    //     SDL_FPoint ballPos{};
-    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-    //         if (!World::mask(e).test(ballMask)) continue;
-    //         const auto &t = World::getComponent<Transform>(e);
-    //         ballPos = t.p;
-    //         break;
-    //     }
-    //
-    //     if (ballPos.x > WIN_WIDTH / 2) return;
-    //
-    //     // For each AI-controlled paddle, update its Intent
-    //     for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-    //         if (!World::mask(e).test(aiPaddleMask)) continue;
-    //         const auto &t = World::getComponent<Transform>(e);
-    //         auto &i = World::getComponent<Intent>(e);
-    //         i.up = i.down = false;
-    //
-    //         const float tolerance = 10.0f; // deadzone
-    //         if (ballPos.y < t.p.y - tolerance) {
-    //             i.up = true;
-    //         } else if (ballPos.y > t.p.y + tolerance) {
-    //             i.down = true;
-    //         }
-    //
-    //         // Optional: Add randomness for human-like error
-    //         // if (rand() % 100 < 5) i.up = i.down = false;
-    //     }
-    // }
-
     void Game::ai_input_system() const {
         if (players != Players::Single) return;
 
@@ -365,6 +321,11 @@ namespace game {
             auto &i = World::getComponent<Intent>(e);
             auto &ai = World::getComponent<AI>(e);
 
+            if (ai.cooldownFrames > 0) {
+                --ai.cooldownFrames;
+                return;
+            }
+
             float paddleX = t.p.x;
 
             // Reset AI target if ball moves away
@@ -381,6 +342,7 @@ namespace game {
 
                 const float top = 0.0f;
                 const float bottom = static_cast<float>(WIN_HEIGHT);
+                float finalVy = vy;  // Will update as we simulate
 
                 while (x > paddleX) {
                     float timeToWall = (vy > 0) ? (bottom - y) / vy : (top - y) / vy;
@@ -396,20 +358,33 @@ namespace game {
                         y = std::clamp(y, top, bottom);
                     }
 
+                    finalVy = vy;
+
                     if (x <= paddleX) break;
                 }
 
-                ai.targetY = y;
+                ai.targetY = y + static_cast<float>(SDL_rand(201) - 100);
+                ai.tiltDirection = (finalVy > 0) ? 1 : -1;
+                ai.tiltFramesRemaining = SDL_rand(10);  // random 0–5
             }
 
             // Move paddle toward target
-            i.up = i.down = false;
+            i.up = i.down = i.tilt_up = i.tilt_down = false;
+            constexpr float tolerance = 10.0f;
+
             if (ai.targetY != -1.0f) {
-                const float tolerance = 10.0f;
+
                 if (ai.targetY < t.p.y - tolerance) {
                     i.up = true;
                 } else if (ai.targetY > t.p.y + tolerance) {
                     i.down = true;
+                } else {
+                    // At target Y
+                    if (ai.tiltFramesRemaining > 0) {
+                        if (ai.tiltDirection > 0) i.tilt_up = true;
+                        else i.tilt_down = true;
+                        ai.tiltFramesRemaining--;
+                    }
                 }
             }
         }
@@ -485,35 +460,6 @@ namespace game {
 
         SDL_RenderPresent(ren);
     }
-
-    /*void Game::collision_detector_system() const {
-        static const Mask mask = MaskBuilder()
-                .set<Collider>()
-                .build();
-        const b2ContactEvents &events = b2World_GetContactEvents(boxWorld);
-        for (int i = 0; i < events.beginCount; ++i) {
-            std::cout << "Collision detected between: " << std::endl;
-            b2BodyId e1 = b2Shape_GetBody(events.beginEvents[i].shapeIdB);
-            b2BodyId e2 = b2Shape_GetBody(events.beginEvents[i].shapeIdA);
-
-            void* userData1 = b2Body_GetUserData(e1);
-            void* userData2 = b2Body_GetUserData(e2);
-
-            if (userData1) {
-                ent_type entity1{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData1))};
-                if (entity1.id <= World::maxId().id && World::mask(entity1).test(mask)) {
-                    World::addComponent(entity1, IsCollision{});
-                }
-            }
-
-            if (userData2) {
-                ent_type entity2{static_cast<id_type>(reinterpret_cast<uintptr_t>(userData2))};
-                if (entity2.id <= World::maxId().id && World::mask(entity2).test(mask)) {
-                    World::addComponent(entity2, IsCollision{});
-                }
-            }
-        }
-    }*/
 
     void Game::collision_detector_system() const {
         static const Mask mask = MaskBuilder()
