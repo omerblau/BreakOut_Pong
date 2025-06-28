@@ -613,6 +613,7 @@ namespace game {
         auto isPowerUp =[&](ent_type e){return World::mask(e).test(Component<Falling>::Bit);};
         auto isPaddle  =[&](ent_type e){return World::mask(e).test(Component<Intent>::Bit);};
         auto isTimer  =[&](ent_type e){return World::mask(e).test(Component<PUtimer>::Bit);};
+        auto isGoal = [&](ent_type e){return World::mask(e).test(Component<Goal>::Bit);};
 
 
         auto handlePair = [&](b2ShapeId sa, b2ShapeId sb)
@@ -639,6 +640,12 @@ namespace game {
                     std::cout << "Ball was hit! Remaining hits: " << timer.hitsLeft << std::endl;
                 }
 
+            }
+
+            if ((isGoal(*ea) && isBall(*eb)) || (isGoal(*eb) && isBall(*ea)))
+            {
+                ent_type goal = isGoal(*ea) ? *ea : *eb;
+                World::addComponent(goal, IsCollision{});
             }
 
             /* ---------- Paddle × Power-Up ---------- */
@@ -691,7 +698,6 @@ namespace game {
             cout << "matka and sensor" << std::endl;
         }
 
-
     }
 
 
@@ -728,23 +734,23 @@ namespace game {
 
     void Game::spawnExtraBallAt(const SDL_FPoint& padPos, bool isRight) const
 {
-    constexpr float MAX_DEVIATION = 0.3f;   // ‎±17° סטייה
-    constexpr float BUFFER        = 2.0f;   // מרחק ביטחון קטן כדי לא לגעת במחבט
+    constexpr float MAX_DEVIATION = 0.3f;
+    constexpr float BUFFER        = 2.0f; // starst away from the paddle
 
-    /* ---- מחשבים נקודת ספאון מעט לפני המחבט ---- */
-    const float R            = BALL_COORDS.w * BALL_TEX_SCALE * 0.5f;            // רדיוס הכדור-בפיקסלים
-    const float HALF_PAD_W   = PAD_COORDS.w  * PAD_TEX_SCALE * 0.5f;             // חצי רוחב המחבט
+    // ball spawn position
+    const float R            = BALL_COORDS.w * BALL_TEX_SCALE * 0.5f;            // ball radious
+    const float HALF_PAD_W   = PAD_COORDS.w  * PAD_TEX_SCALE * 0.5f;             // half pad width
     SDL_FPoint  spawnPos     = padPos;
     spawnPos.x += isRight
-                  ? -(R + HALF_PAD_W + BUFFER)   // מחבט ימין → מזיזים שמאלה (-X)
-                  :  +(R + HALF_PAD_W + BUFFER); // מחבט שמאל → מזיזים ימינה (+X)
+                  ? -(R + HALF_PAD_W + BUFFER)   // // right paddel moving position to left (-X)
+                  :  +(R + HALF_PAD_W + BUFFER); // left paddle mocing position to right (+X)
 
-    /* ---- כיוון “קדימה” בסיסי של הכדור ---- */
-    const float baseAngle = isRight ? M_PI : 0.0f;   // ימין → π (שמאלה), שמאל → 0 (ימינה)
+    // foward direction for ball
+    const float baseAngle = isRight ? M_PI : 0.0f;   // right is pie left is 0
 
     for (int i = 0; i < 2; ++i) {
 
-        /* ---------- 1. גוף Box2D ---------- */
+
         b2BodyDef bd = b2DefaultBodyDef();
         bd.type     = b2_dynamicBody;
         bd.position = { spawnPos.x / BOX_SCALE, spawnPos.y / BOX_SCALE };
@@ -760,7 +766,7 @@ namespace game {
         b2Circle circ{ 0, 0, R / BOX_SCALE };
         b2CreateCircleShape(body, &sd, &circ);
 
-        /* ---------- 2. מהירות התחלה ---------- */
+        // starting speed
         float delta  = (SDL_randf()*2.f - 1.f) * MAX_DEVIATION;
         float angle  = baseAngle + delta;
 
@@ -768,7 +774,7 @@ namespace game {
         float vy = std::sin(angle) * BALL_INIT_MPS;
         b2Body_SetLinearVelocity(body, { vx, vy });
 
-        /* ---------- 3. יצירת ישות Bagel ---------- */
+        // creating ball
         Entity e = Entity::create();
         e.addAll(
             Transform{ spawnPos, 0 },
@@ -777,7 +783,7 @@ namespace game {
                         BALL_COORDS.h * BALL_TEX_SCALE } },
             Collider{ body },
             Ball{},
-            PUtimer{1}                 // כדור זמני – יימחק כשפוגע בלבנה
+            PUtimer{1}                 // temp ball
         );
         b2Body_SetUserData(body, new ent_type{ e.entity() });
     }
