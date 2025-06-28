@@ -89,6 +89,8 @@ namespace game {
         void draw_system() const;
         void collision_detector_system() const;
 
+        void handleCollisionPair(b2ShapeId sa, b2ShapeId sb) const;
+
         ent_type findOpponentOf(ent_type pad) const;
 
         void applyPowerUp(ent_type pad, ent_type pu) const;
@@ -184,6 +186,10 @@ namespace game {
 
         static constexpr bool RIGHT_PLAYER_POWERUP = false;
         static constexpr bool LEFT_PLAYER_POWERUP = true;
+
+
+        static constexpr int HITS_NUM_PU_CREATION = 1;
+
 
         static constexpr Keys RIGHT_KEYS = {
             SDL_SCANCODE_UP,

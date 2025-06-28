@@ -605,103 +605,181 @@ namespace game {
 
 
 
-    void Game::collision_detector_system() const
-    {
-        /* bitmasks for quick classifying */
-        auto isBrick   =[&](ent_type e){return World::mask(e).test(Component<Breakable>::Bit);};
-        auto isBall    =[&](ent_type e){return World::mask(e).test(Component<Ball>::Bit);};
-        auto isPowerUp =[&](ent_type e){return World::mask(e).test(Component<Falling>::Bit);};
-        auto isPaddle  =[&](ent_type e){return World::mask(e).test(Component<Intent>::Bit);};
-        auto isTimer  =[&](ent_type e){return World::mask(e).test(Component<PUtimer>::Bit);};
-        auto isGoal = [&](ent_type e){return World::mask(e).test(Component<Goal>::Bit);};
+    // void Game::collision_detector_system() const
+    // {
+    //     /* bitmasks for quick classifying */
+    //     auto isBrick   =[&](ent_type e){return World::mask(e).test(Component<Breakable>::Bit);};
+    //     auto isBall    =[&](ent_type e){return World::mask(e).test(Component<Ball>::Bit);};
+    //     auto isPowerUp =[&](ent_type e){return World::mask(e).test(Component<Falling>::Bit);};
+    //     auto isPaddle  =[&](ent_type e){return World::mask(e).test(Component<Intent>::Bit);};
+    //     auto isTimer  =[&](ent_type e){return World::mask(e).test(Component<PUtimer>::Bit);};
+    //     auto isGoal = [&](ent_type e){return World::mask(e).test(Component<Goal>::Bit);};
+    //
+    //
+    //     auto handlePair = [&](b2ShapeId sa, b2ShapeId sb)
+    //     {
+    //         b2BodyId ba = b2Shape_GetBody(sa);
+    //         b2BodyId bb = b2Shape_GetBody(sb);
+    //         auto* ea = static_cast<ent_type*>(b2Body_GetUserData(ba));
+    //         auto* eb = static_cast<ent_type*>(b2Body_GetUserData(bb));
+    //         if (!ea || !eb) return;
+    //
+    //         /* ---------- Brick × Ball ---------- */
+    //
+    //         if ((isBrick(*ea) && isBall(*eb)) || (isBrick(*eb) && isBall(*ea))) {
+    //             ent_type brick = isBrick(*ea) ? *ea : *eb;
+    //             ent_type ball  = isBall(*ea)  ? *ea : *eb;
+    //
+    //             // brick for hitting
+    //             World::addComponent(brick, IsCollision{});
+    //
+    //
+    //             if (isTimer(ball)) {
+    //                 auto& timer = World::getComponent<PUtimer>(ball);
+    //                 timer.hitsLeft--;
+    //                 std::cout << "Ball was hit! Remaining hits: " << timer.hitsLeft << std::endl;
+    //             }
+    //
+    //         }
+    //
+    //         if ((isGoal(*ea) && isBall(*eb)) || (isGoal(*eb) && isBall(*ea)))
+    //         {
+    //             ent_type goal = isGoal(*ea) ? *ea : *eb;
+    //             World::addComponent(goal, IsCollision{});
+    //         }
+    //
+    //         /* ---------- Paddle × Power-Up ---------- */
+    //         if ( (isPaddle(*ea) && isPowerUp(*eb)) ||
+    //              (isPaddle(*eb) && isPowerUp(*ea)) )
+    //         {
+    //             ent_type pad = isPaddle(*ea)  ? *ea : *eb;
+    //             ent_type pu  = isPowerUp(*ea) ? *ea : *eb;
+    //
+    //             // Only allow pickup if they match the same side
+    //             const bool padIsLeft = World::mask(pad).test(Component<TagLeft>::Bit);
+    //             const bool puIsLeft  = World::mask(pu).test(Component<TagLeft>::Bit);
+    //
+    //             if (padIsLeft != puIsLeft)
+    //                 return; // not the same side, ignore
+    //
+    //             applyPowerUp(pad, pu);
+    //
+    //
+    //         }
+    //
+    //
+    //         /* ---------- Paddle × Ball ---------- */
+    //         if ((isPaddle(*ea) && isBall(*eb)) ||
+    //             (isPaddle(*eb) && isBall(*ea)))
+    //         {
+    //             ent_type pad = isPaddle(*ea) ? *ea : *eb;
+    //
+    //             if (isTimer(pad)) {
+    //                 auto& timer = World::getComponent<PUtimer>(pad);
+    //                 timer.hitsLeft--;
+    //                 std::cout << "Paddle was hit! Remaining hits: " << timer.hitsLeft << std::endl;
+    //             }
+    //         }
+    //
+    //     };
+    //
+    //     /* ① Contact-Events  */
+    //     const b2ContactEvents& ce = b2World_GetContactEvents(boxWorld);
+    //     for (int i = 0; i < ce.beginCount; ++i)
+    //         handlePair(ce.beginEvents[i].shapeIdA,
+    //                    ce.beginEvents[i].shapeIdB);
+    //
+    //
+    //     /* --------------- 2. Sensor-Events ----------------- */
+    //     const b2SensorEvents&  se = b2World_GetSensorEvents(boxWorld);
+    //     for (int i = 0; i < se.beginCount; ++i) {
+    //         handlePair(se.beginEvents[i].sensorShapeId,
+    //                    se.beginEvents[i].visitorShapeId);
+    //         cout << "matka and sensor" << std::endl;
+    //     }
+    //
+    // }
 
 
-        auto handlePair = [&](b2ShapeId sa, b2ShapeId sb)
-        {
-            b2BodyId ba = b2Shape_GetBody(sa);
-            b2BodyId bb = b2Shape_GetBody(sb);
-            auto* ea = static_cast<ent_type*>(b2Body_GetUserData(ba));
-            auto* eb = static_cast<ent_type*>(b2Body_GetUserData(bb));
-            if (!ea || !eb) return;
 
-            /* ---------- Brick × Ball ---------- */
-
-            if ((isBrick(*ea) && isBall(*eb)) || (isBrick(*eb) && isBall(*ea))) {
-                ent_type brick = isBrick(*ea) ? *ea : *eb;
-                ent_type ball  = isBall(*ea)  ? *ea : *eb;
-
-                // brick for hitting
-                World::addComponent(brick, IsCollision{});
-
-
-                if (isTimer(ball)) {
-                    auto& timer = World::getComponent<PUtimer>(ball);
-                    timer.hitsLeft--;
-                    std::cout << "Ball was hit! Remaining hits: " << timer.hitsLeft << std::endl;
-                }
-
-            }
-
-            if ((isGoal(*ea) && isBall(*eb)) || (isGoal(*eb) && isBall(*ea)))
-            {
-                ent_type goal = isGoal(*ea) ? *ea : *eb;
-                World::addComponent(goal, IsCollision{});
-            }
-
-            /* ---------- Paddle × Power-Up ---------- */
-            if ( (isPaddle(*ea) && isPowerUp(*eb)) ||
-                 (isPaddle(*eb) && isPowerUp(*ea)) )
-            {
-                ent_type pad = isPaddle(*ea)  ? *ea : *eb;
-                ent_type pu  = isPowerUp(*ea) ? *ea : *eb;
-
-                // Only allow pickup if they match the same side
-                const bool padIsLeft = World::mask(pad).test(Component<TagLeft>::Bit);
-                const bool puIsLeft  = World::mask(pu).test(Component<TagLeft>::Bit);
-
-                if (padIsLeft != puIsLeft)
-                    return; // not the same side, ignore
-
-                applyPowerUp(pad, pu);
-
-
-            }
-
-
-            /* ---------- Paddle × Ball ---------- */
-            if ((isPaddle(*ea) && isBall(*eb)) ||
-                (isPaddle(*eb) && isBall(*ea)))
-            {
-                ent_type pad = isPaddle(*ea) ? *ea : *eb;
-
-                if (isTimer(pad)) {
-                    auto& timer = World::getComponent<PUtimer>(pad);
-                    timer.hitsLeft--;
-                    std::cout << "Paddle was hit! Remaining hits: " << timer.hitsLeft << std::endl;
-                }
-            }
-
-        };
-
-        /* ① Contact-Events  */
+    void Game::collision_detector_system() const {
         const b2ContactEvents& ce = b2World_GetContactEvents(boxWorld);
-        for (int i = 0; i < ce.beginCount; ++i)
-            handlePair(ce.beginEvents[i].shapeIdA,
-                       ce.beginEvents[i].shapeIdB);
-
-
-        /* --------------- 2. Sensor-Events ----------------- */
-        const b2SensorEvents&  se = b2World_GetSensorEvents(boxWorld);
-        for (int i = 0; i < se.beginCount; ++i) {
-            handlePair(se.beginEvents[i].sensorShapeId,
-                       se.beginEvents[i].visitorShapeId);
-            cout << "matka and sensor" << std::endl;
+        for (int i = 0; i < ce.beginCount; ++i) {
+            handleCollisionPair(ce.beginEvents[i].shapeIdA, ce.beginEvents[i].shapeIdB);
         }
 
+        const b2SensorEvents& se = b2World_GetSensorEvents(boxWorld);
+        for (int i = 0; i < se.beginCount; ++i) {
+            handleCollisionPair(se.beginEvents[i].sensorShapeId, se.beginEvents[i].visitorShapeId);
+            std::cout << "paddle and sensor (power up)" << std::endl;
+        }
     }
 
 
-    // In Game.cpp:
+    void Game::handleCollisionPair(b2ShapeId sa, b2ShapeId sb) const {
+        b2BodyId ba = b2Shape_GetBody(sa);
+        b2BodyId bb = b2Shape_GetBody(sb);
+        auto *ea = static_cast<ent_type *>(b2Body_GetUserData(ba));
+        auto *eb = static_cast<ent_type *>(b2Body_GetUserData(bb));
+        if (!ea || !eb) return;
+
+        auto is = [&](auto comp) {
+            return [&](ent_type e) {
+                return World::mask(e).test(Component<decltype(comp)>::Bit);
+            };
+        };
+
+        auto isBrick = is(Breakable{});
+        auto isBall = is(Ball{});
+        auto isPowerUp = is(Falling{});
+        auto isPaddle = is(Intent{});
+        auto isTimer = is(PUtimer{});
+        auto isGoal = is(Goal{});
+
+        /* Brick × Ball */
+        if ((isBrick(*ea) && isBall(*eb)) || (isBrick(*eb) && isBall(*ea))) {
+            ent_type brick = isBrick(*ea) ? *ea : *eb;
+            ent_type ball = isBall(*ea) ? *ea : *eb;
+
+            World::addComponent(brick, IsCollision{});
+            if (isTimer(ball)) {
+                auto &timer = World::getComponent<PUtimer>(ball);
+                timer.hitsLeft--;
+                std::cout << "Ball was hit! Remaining hits: " << timer.hitsLeft << std::endl;
+            }
+        }
+
+        /* Ball × Goal */
+        if ((isGoal(*ea) && isBall(*eb)) || (isGoal(*eb) && isBall(*ea))) {
+            ent_type goal = isGoal(*ea) ? *ea : *eb;
+            World::addComponent(goal, IsCollision{});
+        }
+
+        /* Paddle × Power-Up */
+        if ((isPaddle(*ea) && isPowerUp(*eb)) || (isPaddle(*eb) && isPowerUp(*ea))) {
+            ent_type pad = isPaddle(*ea) ? *ea : *eb;
+            ent_type pu = isPowerUp(*ea) ? *ea : *eb;
+
+            bool padIsLeft = World::mask(pad).test(Component<TagLeft>::Bit);
+            bool puIsLeft = World::mask(pu).test(Component<TagLeft>::Bit);
+
+            if (padIsLeft != puIsLeft) return;
+
+            applyPowerUp(pad, pu);
+        }
+
+        /* Paddle × Ball */
+        if ((isPaddle(*ea) && isBall(*eb)) || (isPaddle(*eb) && isBall(*ea))) {
+            ent_type pad = isPaddle(*ea) ? *ea : *eb;
+            if (isTimer(pad)) {
+                auto &timer = World::getComponent<PUtimer>(pad);
+                timer.hitsLeft--;
+                std::cout << "Paddle was hit! Remaining hits: " << timer.hitsLeft << std::endl;
+            }
+        }
+    }
+
+
 
     void Game::applyPowerUp(ent_type pad, ent_type pu) const
     {
@@ -945,7 +1023,7 @@ namespace game {
                         {d.size.x, d.size.y}
                     };
 
-                    if (++bricksBroken % 3 == 0) {
+                    if (++bricksBroken % HITS_NUM_PU_CREATION == 0) {
                         std::cout << "brick cunt!" << bricksBroken << std::endl;
                         createPowerUpRotating({ World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
                     }
