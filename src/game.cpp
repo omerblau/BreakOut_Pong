@@ -1123,16 +1123,17 @@ namespace game {
                 .set<TagRight>()
                 .build();
 
-        bool scored = false;
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(goalMask)) {
-                auto &winner = World::getComponent<Goal>(e);
-                if (winner.left) {
-                    std::cout << "Right player scored!" << std::endl;
-                    gameState = GameState::RIGHT_WIN;
-                } else {
-                    std::cout << "Left player scored!" << std::endl;
-                    gameState = GameState::LEFT_WIN;
+        if (mode == GameMode::FirstGoal) {
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(goalMask)) {
+                    auto &winner = World::getComponent<Goal>(e);
+                    if (winner.left) {
+                        std::cout << "Right player scored!" << std::endl;
+                        gameState = GameState::RIGHT_WIN;
+                    } else {
+                        std::cout << "Left player scored!" << std::endl;
+                        gameState = GameState::LEFT_WIN;
+                    }
                 }
             }
         } else {
