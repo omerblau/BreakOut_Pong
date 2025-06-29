@@ -1171,18 +1171,11 @@ namespace game {
             bool isLeft = false;
             bool isRight = false;
 
-            int countLeft = 0;
-            int countRight = 0;
-
             for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-                if (World::mask(e).test(leftBrickMask)) {
+                if (World::mask(e).test(leftBrickMask))
                     isLeft = true;
-                    ++countLeft;
-                }
-                if (World::mask(e).test(rightBrickMask)) {
+                if (World::mask(e).test(rightBrickMask))
                     isRight = true;
-                    ++countRight;
-                }
             }
 
             if (!isLeft) {

@@ -70,9 +70,10 @@ namespace game {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
         bool exit_run = false;
-        while (!exit_run && !appQuit) {
+        while (!appQuit) {
             World::step();
             handle_game_state_input(exit_run);
+            if (exit_run) break;
 
             if (gameState == GameState::PLAYING) {
                 input_system();
