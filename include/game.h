@@ -18,36 +18,33 @@ namespace game {
     enum class Players    {None = 0, Single = 1, Two = 2};
     enum class GameState  {PLAYING, PAUSED, LEFT_WIN, RIGHT_WIN};
     enum class PaddleSide {Left, Right};
-    enum class PUKind {EnlargeSelf, ShrinkEnemy, Coin, ExtraBall};
 
-    using brick_coords  = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
-    using Transform     = struct { SDL_FPoint p; float angle; };
-    using Drawable      = struct {SDL_FRect part; SDL_FPoint size; };
-    using ChangePart    = struct {brick_coords coords;};
-    using Intent        = struct { bool up, down, tilt_down, tilt_up; };
-    using Keys          = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
-    using Collider      = struct { b2BodyId body; };
-    using Scorer        = struct { b2ShapeId s; };
-    using Goal          = struct {bool left, right;};
-    using Falling       = struct { float vy; bool playerCollectSide;}; // constant vertical velocity (px/s) for power ups
-    using PUtimer       = struct { float hitsLeft; }; // countdown timer for power up effects
-    using AI            = struct {
-                             float targetY = -1.0f;
-                             int tiltFramesRemaining = 0;
-                             int tiltDirection = 0;  // -1 = up, 1 = down
-                             int cooldownFrames = 1;
-                          };
+    using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
+    using Transform    = struct { SDL_FPoint p; float angle; };
+    using Drawable     = struct {SDL_FRect part; SDL_FPoint size; };
+    using ChangePart   = struct {brick_coords coords;};
+    using Intent       = struct { bool up, down, tilt_down, tilt_up; };
+    using Keys         = struct { SDL_Scancode up, down, tilt_down, tilt_up; };
+    using Collider     = struct { b2BodyId body; };
+    using Scorer       = struct { b2ShapeId s; };
+    using Goal         = struct {bool left, right;};
+    using AI           = struct {
+                            float targetY = -1.0f;
+                            int tiltFramesRemaining = 0;
+                            int tiltDirection = 0;  // -1 = up, 1 = down
+                            int cooldownFrames = 1;
+                         };
+    using IsCollision  = struct {};
+    using Breakable    = struct {};
+    using Ball         = struct {};
 
-    using IsCollision    = struct {};
-    using Breakable      = struct {};
-    using Ball           = struct {};
-    using EnlargePU      = struct {}; // tag – specific effect: enlarge paddle
-    using TagLeft        = struct {}; // tag for left player power up
-    using TagRight       = struct {}; // tag for right player power up
-    using PU_EnlargeSelf = struct {};
-    using PU_ShrinkEnemy = struct {};
-    using PU_Coin        = struct {};
-    using PU_ExtraBall   = struct {};
+
+    enum class PUKind {
+        EnlargeSelf,
+        ShrinkEnemy,
+        Coin,
+        ExtraBall
+    };
 
     inline constexpr std::array spriteByKind{
         std::pair{PUKind::EnlargeSelf, POWERUP_ENLARGE},
@@ -55,6 +52,18 @@ namespace game {
         std::pair{PUKind::Coin, POWERUP_COIN},
         std::pair{PUKind::ExtraBall, POWERUP_4_COORDS}
     };
+
+    using Falling      = struct { float vy; bool playerCollectSide;}; // constant vertical velocity (px/s) for power ups
+    using EnlargePU    = struct {}; // tag – specific effect: enlarge paddle
+    using PUtimer = struct { float hitsLeft; }; // countdown timer for power up effects
+    using TagLeft = struct {}; // tag for left player power up
+    using TagRight = struct {}; // tag for right player power up
+    using PU_EnlargeSelf = struct {};
+    using PU_ShrinkEnemy = struct {};
+    using PU_Coin = struct {};
+    using PU_ExtraBall = struct {};
+
+
 
     class Game {
     public:
@@ -162,8 +171,6 @@ namespace game {
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.25f;
 
-
-
         static constexpr float SPEED_MULTIPLIER = 1.0f;
 
         static constexpr float BALL_INIT_MPS = 14.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
@@ -179,7 +186,6 @@ namespace game {
         static constexpr int BRICK_ROWS = 18;
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
-
 
         static constexpr float PU_SPEED_PPS = 4.0f * SPEED_MULTIPLIER;  // pixels per second
 

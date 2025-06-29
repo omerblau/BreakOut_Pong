@@ -72,8 +72,7 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
-    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const PaddleSide side,
-                         bool IsRight) const {
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const PaddleSide side, bool IsRight) const {
         b2BodyDef padBodyDef = b2DefaultBodyDef();
         padBodyDef.type = b2_kinematicBody;
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
@@ -113,8 +112,7 @@ namespace game {
         else
             createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, LEFT_KEYS, PaddleSide::Left, false);
 
-        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS,
-                  PaddleSide::Right, true);
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS, PaddleSide::Right, true);
     }
 
     void Game::createBrick(const SDL_FPoint &pos, int row, bool isRight) const {
@@ -288,10 +286,15 @@ namespace game {
                 .set<Intent>()
                 .build();
 
+        static const Mask aiMask = MaskBuilder()
+                .set<AI>()
+                .build();
+
         SDL_PumpEvents();
         const bool *keys = SDL_GetKeyboardState(nullptr);
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(aiMask)) continue;
             if (World::mask(e).test(mask)) {
                 const auto &k = World::getComponent<Keys>(e);
                 auto &i = World::getComponent<Intent>(e);
@@ -308,16 +311,16 @@ namespace game {
         if (players != Players::Single) return;
 
         Mask ballMask = MaskBuilder()
-                .set<Ball>()
-                .set<Transform>()
-                .set<Collider>()
-                .build();
+            .set<Ball>()
+            .set<Transform>()
+            .set<Collider>()
+            .build();
 
         Mask aiMask = MaskBuilder()
-                .set<Transform>()
-                .set<Intent>()
-                .set<AI>()
-                .build();
+            .set<Transform>()
+            .set<Intent>()
+            .set<AI>()
+            .build();
 
         // Ball state
         SDL_FPoint ballPos{};
@@ -502,43 +505,40 @@ namespace game {
         SDL_RenderPresent(ren);
     }
 
-    void Game::createPowerUp(const SDL_FRect &r, const SDL_FPoint &pos, PUKind kind) const {
+    void Game::createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos, PUKind kind) const {
         // 1. physics (sensor)
         b2BodyDef bd = b2DefaultBodyDef();
-        bd.type = b2_dynamicBody;
-        bd.position = {pos.x / BOX_SCALE, pos.y / BOX_SCALE};
+        bd.type          = b2_dynamicBody;
+        bd.position  = { pos.x / BOX_SCALE, pos.y / BOX_SCALE };
         b2BodyId b = b2CreateBody(boxWorld, &bd);
 
         b2ShapeDef sd = b2DefaultShapeDef();
-        sd.isSensor = true; // collect only, no collision response
+        sd.isSensor   = true;               // collect only, no collision response
         sd.enableSensorEvents = true;
         b2Polygon box = b2MakeBox(20 / BOX_SCALE, 20 / BOX_SCALE);
         b2CreatePolygonShape(b, &sd, &box);
 
         /* -------- choose horizontal direction -------- */
-        float vx = (pos.x > WIN_WIDTH / 2) ? -PU_SPEED_PPS : PU_SPEED_PPS;
+        float vx = (pos.x > WIN_WIDTH / 2) ? -PU_SPEED_PPS :  PU_SPEED_PPS;
         bool side = (pos.x <= WIN_WIDTH / 2);
 
         // 2. entity
         Entity e = Entity::create();
         e.addAll(
-            Transform{pos, 0},
-            Drawable{r, {40, 40}}, // use heart sprite
-            Collider{b},
+            Transform{ pos, 0 },
+            Drawable{ r, { 40, 40 } },   // use heart sprite
+            Collider{ b },
             EnlargePU{},
-            Falling{vx, side}
+            Falling{vx,side}
         );
 
         addSideTag(e.entity(), side); // add tag for left/right player to collect
         b2Body_SetUserData(b, new ent_type{e.entity()});
 
-        switch (kind) {
-            case PUKind::EnlargeSelf: e.add(PU_EnlargeSelf{});
-                break;
-            case PUKind::ShrinkEnemy: e.add(PU_ShrinkEnemy{});
-                break;
-            case PUKind::ExtraBall: e.add(PU_ExtraBall{});
-                break;
+        switch(kind){
+            case PUKind::EnlargeSelf: e.add(PU_EnlargeSelf{});  break;
+            case PUKind::ShrinkEnemy: e.add(PU_ShrinkEnemy{});  break;
+            case PUKind::ExtraBall:   e.add(PU_ExtraBall{});    break;
         }
 
         /* give the Box2D body the same velocity (m/s) */
@@ -666,12 +666,12 @@ namespace game {
     } */
 
     void Game::collision_detector_system() const {
-        const b2ContactEvents &ce = b2World_GetContactEvents(boxWorld);
+        const b2ContactEvents& ce = b2World_GetContactEvents(boxWorld);
         for (int i = 0; i < ce.beginCount; ++i) {
             handleCollisionPair(ce.beginEvents[i].shapeIdA, ce.beginEvents[i].shapeIdB);
         }
 
-        const b2SensorEvents &se = b2World_GetSensorEvents(boxWorld);
+        const b2SensorEvents& se = b2World_GetSensorEvents(boxWorld);
         for (int i = 0; i < se.beginCount; ++i) {
             handleCollisionPair(se.beginEvents[i].sensorShapeId, se.beginEvents[i].visitorShapeId);
             std::cout << "paddle and sensor (power up)" << std::endl;
@@ -770,59 +770,55 @@ namespace game {
         constexpr float MAX_DEVIATION = 0.3f;
         constexpr float BUFFER = 2.0f; // starst away from the paddle
 
-        // ball spawn position
-        const float R = BALL_COORDS.w * BALL_TEX_SCALE * 0.5f; // ball radious
-        const float HALF_PAD_W = PAD_COORDS.w * PAD_TEX_SCALE * 0.5f; // half pad width
-        SDL_FPoint spawnPos = padPos;
-        spawnPos.x += isRight
-                          ? -(R + HALF_PAD_W + BUFFER) // // right paddel moving position to left (-X)
-                          : +(R + HALF_PAD_W + BUFFER); // left paddle mocing position to right (+X)
+    // ball spawn position
+    const float R            = BALL_COORDS.w * BALL_TEX_SCALE * 0.5f;            // ball radious
+    const float HALF_PAD_W   = PAD_COORDS.w  * PAD_TEX_SCALE * 0.5f;             // half pad width
+    SDL_FPoint  spawnPos     = padPos;
+    spawnPos.x += isRight
+                  ? -(R + HALF_PAD_W + BUFFER)   // // right paddel moving position to left (-X)
+                  :  +(R + HALF_PAD_W + BUFFER); // left paddle mocing position to right (+X)
 
-        // foward direction for ball
-        const float baseAngle = isRight ? M_PI : 0.0f; // right is pie left is 0
+    // foward direction for ball
+    const float baseAngle = isRight ? M_PI : 0.0f;   // right is pie left is 0
 
-        for (int i = 0; i < 2; ++i) {
-            b2BodyDef bd = b2DefaultBodyDef();
-            bd.type = b2_dynamicBody;
-            bd.position = {spawnPos.x / BOX_SCALE, spawnPos.y / BOX_SCALE};
-            b2BodyId body = b2CreateBody(boxWorld, &bd);
+    for (int i = 0; i < 2; ++i) {
+        b2BodyDef bd = b2DefaultBodyDef();
+        bd.type     = b2_dynamicBody;
+        bd.position = { spawnPos.x / BOX_SCALE, spawnPos.y / BOX_SCALE };
+        b2BodyId body = b2CreateBody(boxWorld, &bd);
 
-            b2ShapeDef sd = b2DefaultShapeDef();
-            sd.enableSensorEvents = true;
-            sd.enableContactEvents = true;
-            sd.density = 1;
-            sd.material.friction = 0;
-            sd.material.restitution = 1.0f;
+        b2ShapeDef sd = b2DefaultShapeDef();
+        sd.enableSensorEvents  = true;
+        sd.enableContactEvents = true;
+        sd.density             = 1;
+        sd.material.friction    = 0;
+        sd.material.restitution = 1.0f;
 
-            b2Circle circ{0, 0, R / BOX_SCALE};
-            b2CreateCircleShape(body, &sd, &circ);
+        b2Circle circ{ 0, 0, R / BOX_SCALE };
+        b2CreateCircleShape(body, &sd, &circ);
 
-            // starting speed
-            float delta = (SDL_randf() * 2.f - 1.f) * MAX_DEVIATION;
-            float angle = baseAngle + delta;
+        // starting speed
+        float delta  = (SDL_randf()*2.f - 1.f) * MAX_DEVIATION;
+        float angle  = baseAngle + delta;
 
-            float vx = std::cos(angle) * BALL_INIT_MPS;
-            float vy = std::sin(angle) * BALL_INIT_MPS;
-            b2Body_SetLinearVelocity(body, {vx, vy});
+        float vx = std::cos(angle) * BALL_INIT_MPS;
+        float vy = std::sin(angle) * BALL_INIT_MPS;
+        b2Body_SetLinearVelocity(body, { vx, vy });
 
-            // creating ball
-            Entity e = Entity::create();
-            e.addAll(
-                Transform{spawnPos, 0},
-                Drawable{
-                    BALL_COORDS,
-                    {
-                        BALL_COORDS.w * BALL_TEX_SCALE,
-                        BALL_COORDS.h * BALL_TEX_SCALE
-                    }
-                },
-                Collider{body},
-                Ball{},
-                PUtimer{1} // temp ball
-            );
-            b2Body_SetUserData(body, new ent_type{e.entity()});
-        }
+        // creating ball
+        Entity e = Entity::create();
+        e.addAll(
+            Transform{ spawnPos, 0 },
+            Drawable{ BALL_COORDS,
+                      { BALL_COORDS.w * BALL_TEX_SCALE,
+                        BALL_COORDS.h * BALL_TEX_SCALE } },
+            Collider{ body },
+            Ball{},
+            PUtimer{1}                 // temp ball
+        );
+        b2Body_SetUserData(body, new ent_type{ e.entity() });
     }
+}
 
     // get center position of a paddle
     SDL_FPoint Game::getPaddlePosition(ent_type pad) const {
@@ -833,7 +829,7 @@ namespace game {
         const bool padIsLeft = World::mask(pad).test(Component<TagLeft>::Bit);
 
         // change mask according to the side of the paddle
-        static const Mask leftMask = MaskBuilder().set<Intent>().set<Collider>().set<TagLeft>().build();
+        static const Mask leftMask  = MaskBuilder().set<Intent>().set<Collider>().set<TagLeft>().build();
         static const Mask rightMask = MaskBuilder().set<Intent>().set<Collider>().set<TagRight>().build();
 
         const Mask &target = padIsLeft ? rightMask : leftMask;
@@ -882,12 +878,10 @@ namespace game {
         b2Body_SetUserData(newBody, new ent_type{pad});
 
         // Update the sprite
-        auto &dr = World::getComponent<Drawable>(pad);
+        auto& dr = World::getComponent<Drawable>(pad);
         dr.part = PAD_LONG_COORDS;
-        dr.size = {
-            PAD_LONG_COORDS.w * PAD_TEX_SCALE,
-            PAD_LONG_COORDS.h * PAD_TEX_SCALE
-        };
+        dr.size = { PAD_LONG_COORDS.w * PAD_TEX_SCALE,
+                    PAD_LONG_COORDS.h * PAD_TEX_SCALE };
 
         World::addComponent(pad, PUtimer{3});
     }
@@ -930,10 +924,8 @@ namespace game {
         // Update the sprite
         auto &dr = World::getComponent<Drawable>(pad);
         dr.part = PAD_SHORT_COORDS;
-        dr.size = {
-            PAD_SHORT_COORDS.w * PAD_TEX_SCALE,
-            PAD_SHORT_COORDS.h * PAD_TEX_SCALE
-        };
+        dr.size = { PAD_SHORT_COORDS.w * PAD_TEX_SCALE,
+                    PAD_SHORT_COORDS.h * PAD_TEX_SCALE };
 
         World::addComponent(pad, PUtimer{3});
     }
@@ -973,9 +965,7 @@ namespace game {
 
                     if (++bricksBroken % HITS_NUM_PU_CREATION == 0) {
                         std::cout << "brick cunt!" << bricksBroken << std::endl;
-                        createPowerUpRotating({
-                            World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y
-                        }); // use the coordinates of the brick
+                        createPowerUpRotating({ World::getComponent<Transform>(e).p.x, World::getComponent<Transform>(e).p.y });   // use the coordinates of the brick
                     }
                 }
             }
@@ -1115,9 +1105,22 @@ namespace game {
                 .set<Goal>()
                 .build();
 
-        static const Mask ballMask = MaskBuilder()
-                .set<Ball>()
+        static const Mask leftBrickMask = MaskBuilder()
+                .set<Transform>()
+                .set<Breakable>()
+                .set<ChangePart>()
+                .set<Drawable>()
                 .set<Collider>()
+                .set<TagLeft>()
+                .build();
+
+        static const Mask rightBrickMask = MaskBuilder()
+                .set<Transform>()
+                .set<Breakable>()
+                .set<ChangePart>()
+                .set<Drawable>()
+                .set<Collider>()
+                .set<TagRight>()
                 .build();
 
         bool scored = false;
@@ -1131,11 +1134,25 @@ namespace game {
                     std::cout << "Left player scored!" << std::endl;
                     gameState = GameState::LEFT_WIN;
                 }
-                scored = true;
             }
-        }
+        } else {
+            bool isLeft = false;
+            bool isRight = false;
 
-        // Don't respawn ball immediately when someone wins
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(leftBrickMask))
+                    isLeft = true;
+                if (World::mask(e).test(rightBrickMask))
+                    isRight = true;
+            }
+
+            if (!isLeft) {
+                gameState = GameState::RIGHT_WIN;
+                return;
+            }
+            if (!isRight)
+                gameState = GameState::LEFT_WIN;
+        }
     }
 
     void Game::cleanup_collision_system() const {
