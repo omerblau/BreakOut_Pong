@@ -171,7 +171,7 @@ namespace game {
 
     void Game::placeBricks() const {
         constexpr int cols = 3;
-        constexpr int rows = 18;
+        constexpr int rows = 14;
         constexpr int top_margin = 20;
         constexpr int side_margin = 20;
         constexpr float spacing = 5.0f;
@@ -290,10 +290,15 @@ namespace game {
                 .set<Intent>()
                 .build();
 
+        static const Mask aiMask = MaskBuilder()
+                .set<AI>()
+                .build();
+
         SDL_PumpEvents();
         const bool *keys = SDL_GetKeyboardState(nullptr);
 
         for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+            if (World::mask(e).test(aiMask)) continue;
             if (World::mask(e).test(mask)) {
                 const auto &k = World::getComponent<Keys>(e);
                 auto &i = World::getComponent<Intent>(e);
@@ -1131,27 +1136,55 @@ namespace game {
                 .set<Goal>()
                 .build();
 
-        static const Mask ballMask = MaskBuilder()
-                .set<Ball>()
+        static const Mask leftBrickMask = MaskBuilder()
+                .set<Transform>()
+                .set<Breakable>()
+                .set<ChangePart>()
+                .set<Drawable>()
                 .set<Collider>()
+                .set<TagLeft>()
                 .build();
 
-        bool scored = false;
-        for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
-            if (World::mask(e).test(goalMask)) {
-                auto &winner = World::getComponent<Goal>(e);
-                if (winner.left) {
-                    std::cout << "Right player scored!" << std::endl;
-                    gameState = GameState::RIGHT_WIN;
-                } else {
-                    std::cout << "Left player scored!" << std::endl;
-                    gameState = GameState::LEFT_WIN;
-                }
-                scored = true;
-            }
-        }
+        static const Mask rightBrickMask = MaskBuilder()
+                .set<Transform>()
+                .set<Breakable>()
+                .set<ChangePart>()
+                .set<Drawable>()
+                .set<Collider>()
+                .set<TagRight>()
+                .build();
 
-        // Don't respawn ball immediately when someone wins
+        if (mode == GameMode::FirstGoal) {
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(goalMask)) {
+                    auto &winner = World::getComponent<Goal>(e);
+                    if (winner.left) {
+                        std::cout << "Right player scored!" << std::endl;
+                        gameState = GameState::RIGHT_WIN;
+                    } else {
+                        std::cout << "Left player scored!" << std::endl;
+                        gameState = GameState::LEFT_WIN;
+                    }
+                }
+            }
+        } else {
+            bool isLeft = false;
+            bool isRight = false;
+
+            for (ent_type e{0}; e.id <= World::maxId().id; ++e.id) {
+                if (World::mask(e).test(leftBrickMask))
+                    isLeft = true;
+                if (World::mask(e).test(rightBrickMask))
+                    isRight = true;
+            }
+
+            if (!isLeft) {
+                gameState = GameState::RIGHT_WIN;
+                return;
+            }
+            if (!isRight)
+                gameState = GameState::LEFT_WIN;
+        }
     }
 
     void Game::cleanup_collision_system() const {
