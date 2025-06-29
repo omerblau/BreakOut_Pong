@@ -166,17 +166,19 @@ namespace game {
 
         static constexpr float SPEED_MULTIPLIER = 1.0f;
 
-        static constexpr float BALL_INIT_MPS = 12.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
-        static constexpr float BALL_MAX_MPS  = 17.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_INIT_MPS = 14.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_MAX_MPS  = 20.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_MIN_MPS  = 10.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
 
         static constexpr int   PAD_Y_MARGIN  = 200;
+        static constexpr float VIS_MARGIN_M  = 4.0f / BOX_SCALE;
         static constexpr float PAD_MOVE      = 12.0f * SPEED_MULTIPLIER;
         static constexpr float PAD_TILT      = 200.0f * SPEED_MULTIPLIER;
 
+        static constexpr int BRICK_COLS = 1;
+        static constexpr int BRICK_ROWS = 18;
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
-        static constexpr int BRICK_COLS = 0;
-        static constexpr int BRICK_ROWS = 18;
 
 
         static constexpr float PU_SPEED_PPS = 4.0f * SPEED_MULTIPLIER;  // pixels per second
