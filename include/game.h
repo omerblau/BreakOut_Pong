@@ -182,8 +182,8 @@ namespace game {
         static constexpr float PAD_MOVE      = 12.0f * SPEED_MULTIPLIER;
         static constexpr float PAD_TILT      = 200.0f * SPEED_MULTIPLIER;
 
-        static constexpr int BRICK_COLS = 1;
-        static constexpr int BRICK_ROWS = 18;
+        static constexpr int BRICK_COLS = 3;
+        static constexpr int BRICK_ROWS = 14;
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 

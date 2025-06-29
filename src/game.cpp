@@ -168,9 +168,9 @@ namespace game {
     void Game::placeBricks() const {
         constexpr int cols = BRICK_COLS;
         constexpr int rows = BRICK_ROWS;
-        constexpr int top_margin = 20;
+        constexpr int top_margin = 36;
         constexpr int side_margin = 20;
-        constexpr float spacing = 5.0f;
+        constexpr float spacing = 3.8f;
 
         constexpr float bw = BRICK_W * BRICKS_TEX_SCALE;
         constexpr float bh = BRICK_H * BRICKS_TEX_SCALE;
