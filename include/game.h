@@ -158,10 +158,6 @@ namespace game {
         void placeBricks() const;
         void createPowerUp(const SDL_FRect &r,const SDL_FPoint& pos, PUKind kind) const;
 
-
-
-
-
         static constexpr int WIN_WIDTH = 1500;
         static constexpr int WIN_HEIGHT = 1000;
         static constexpr int FPS = 60;
@@ -170,20 +166,24 @@ namespace game {
         static constexpr float RAD_TO_DEG = 57.2958f;
         static constexpr float DEG_TO_RAD = 1.0f / RAD_TO_DEG;
 
-        static constexpr int   PAD_Y_MARGIN  = 200;
-
-        static constexpr float SPEED_MULTIPLIER = 1.0f;
-
-        static constexpr float BALL_INIT_MPS = 10.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
-        static constexpr float PAD_MOVE      = 12.0f * SPEED_MULTIPLIER;
-        static constexpr float PAD_TILT      = 200.0f * SPEED_MULTIPLIER;
-        static constexpr float BALL_MAX_MPS  = 23.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
-
         static constexpr float BOX_SCALE        = 100.0f;   // 1 m = 10 px
         static constexpr float BALL_TEX_SCALE   = 0.3f;
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.25f;
 
+        static constexpr float SPEED_MULTIPLIER = 1.0f;
+
+        static constexpr float BALL_INIT_MPS = 14.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_MAX_MPS  = 20.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+        static constexpr float BALL_MIN_MPS  = 10.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
+
+        static constexpr int   PAD_Y_MARGIN  = 200;
+        static constexpr float VIS_MARGIN_M  = 4.0f / BOX_SCALE;
+        static constexpr float PAD_MOVE      = 12.0f * SPEED_MULTIPLIER;
+        static constexpr float PAD_TILT      = 200.0f * SPEED_MULTIPLIER;
+
+        static constexpr int BRICK_COLS = 1;
+        static constexpr int BRICK_ROWS = 18;
         static constexpr int BRICK_W = 78;
         static constexpr int BRICK_H = 135;
 
@@ -192,9 +192,7 @@ namespace game {
         static constexpr bool RIGHT_PLAYER_POWERUP = false;
         static constexpr bool LEFT_PLAYER_POWERUP = true;
 
-
         static constexpr int HITS_NUM_PU_CREATION = 3;
-
 
         static constexpr Keys RIGHT_KEYS = {
             SDL_SCANCODE_UP,

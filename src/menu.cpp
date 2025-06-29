@@ -39,11 +39,12 @@ namespace game {
     bool Game::handlePlayersKeys(const bool *keys) {
         if (keys[SDL_SCANCODE_1]) {
             players = Players::Single;
+            ui      = UIScreen::Main;
             return true;
         }
         if (keys[SDL_SCANCODE_2]) {
             players = Players::Two;
-            ui = UIScreen::Main;
+            ui      = UIScreen::Main;
             return true;
         }
         if (keys[SDL_SCANCODE_3])
