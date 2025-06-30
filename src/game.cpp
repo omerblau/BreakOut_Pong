@@ -72,7 +72,7 @@ namespace game {
         b2Body_SetUserData(ballBody, new ent_type{ballEntity.entity()});
     }
 
-    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const PaddleSide side, bool IsRight) const {
+    void Game::createPad(const SDL_FRect &r, const SDL_FPoint &p, const Keys &k, const bool isRight) const {
         b2BodyDef padBodyDef = b2DefaultBodyDef();
         padBodyDef.type = b2_kinematicBody;
         padBodyDef.position = {p.x / BOX_SCALE, p.y / BOX_SCALE};
@@ -99,23 +99,23 @@ namespace game {
             k
         );
         // Add the tag separately
-        addSideTag(padEntity.entity(), IsRight);
+        addSideTag(padEntity.entity(), isRight);
 
-        if (side == PaddleSide::Left && players == Players::Single)
+        if (!isRight && players == Players::Single)
             padEntity.add(AI{});
         b2Body_SetUserData(padBody, new ent_type{padEntity.entity()});
     }
 
     void Game::createPads() const {
         if (players == Players::Single)
-            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {}, PaddleSide::Left, false);
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, {}, false);
         else
-            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, LEFT_KEYS, PaddleSide::Left, false);
+            createPad(PAD_COORDS, {PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, LEFT_KEYS, false);
 
-        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS, PaddleSide::Right, true);
+        createPad(PAD_COORDS, {WIN_WIDTH - PAD_Y_MARGIN, static_cast<int>(WIN_HEIGHT / 2)}, RIGHT_KEYS, true);
     }
 
-    void Game::createBrick(const SDL_FPoint &pos, int row, bool isRight) const {
+    void Game::createBrick(const SDL_FPoint &pos, int row, const bool isRight) const {
         // physics body
         b2BodyDef def = b2DefaultBodyDef();
         def.type = b2_staticBody;
