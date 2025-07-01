@@ -79,11 +79,13 @@ namespace game {
                 input_system();
                 ai_input_system();
                 move_system();
-                powerup_move_system();
                 box_system();
                 constraints_system();
+                protectbrick_damp_system();
                 collision_detector_system();
                 brick_system();
+                ttl_system();
+                powerup_move_system();
                 pu_timer_system();
                 score_system();
                 cleanup_collision_system();
