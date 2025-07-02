@@ -61,6 +61,11 @@ namespace game {
     using PU_ShrinkEnemy = struct {};
     using PU_Coin = struct {};
     using PU_ExtraBall = struct {};
+    using leftBallTouchedLast = struct {};
+    using rightBallTouchedLast = struct {};
+    using ProtectLeft  = struct {};
+    using ProtectRight = struct {};
+    struct TTL { int framesLeft; };   // Time-To-Live in simulation frames
 
 
 
@@ -99,6 +104,16 @@ namespace game {
 
         void applyPowerUp(ent_type pad, ent_type pu) const;
 
+        void createProtectBricks(bool protectRight) const;
+
+        void updateProtectBricks(bool leftActive) const;
+
+        void replaceProtectBricks(bool isRightSide) const;
+
+        void protectbrick_damp_system() const;
+
+        void ttl_system() const;
+
         void spawnExtraBallAt(const SDL_FPoint &pos, bool isRight) const;
 
         SDL_FPoint getPaddlePosition(ent_type pad) const;
@@ -120,6 +135,9 @@ namespace game {
         void create_game() const;
 
         void destroy_all_entities();
+
+        void DestroyBodySafe(b2BodyId b) const;
+
         void paddle_bounds() const;
         void ball_speed_cap() const;
         bool poll_quit() const;
@@ -170,7 +188,7 @@ namespace game {
         static constexpr float BRICKS_TEX_SCALE = 0.5f;
         static constexpr float PAD_TEX_SCALE    = 0.25f;
 
-        static constexpr float SPEED_MULTIPLIER = 1.0f;
+        static constexpr float SPEED_MULTIPLIER = 0.7f;
 
         static constexpr float BALL_INIT_MPS = 14.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
         static constexpr float BALL_MAX_MPS  = 20.0f * SPEED_MULTIPLIER;       // 3 m/s ≈ 30 px/s
@@ -192,6 +210,12 @@ namespace game {
         static constexpr bool LEFT_PLAYER_POWERUP = true;
 
         static constexpr int HITS_NUM_PU_CREATION = 3;
+
+
+        static constexpr float WALL_GAP = 200.0f; // distance from the wall to the first protective brick
+
+
+
 
         static constexpr Keys RIGHT_KEYS = {
             SDL_SCANCODE_UP,
