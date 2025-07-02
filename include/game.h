@@ -17,7 +17,6 @@ namespace game {
     enum class GameMode   {None, FirstGoal, BreakAll };
     enum class Players    {None = 0, Single = 1, Two = 2};
     enum class GameState  {PLAYING, PAUSED, LEFT_WIN, RIGHT_WIN};
-    enum class PaddleSide {Left, Right};
 
     using brick_coords = struct {SDL_FRect pos[NUM_BRICK_STATE]{}; int idx = 0; };
     using Transform    = struct { SDL_FPoint p; float angle; };
@@ -165,7 +164,7 @@ namespace game {
         void createBall() const;
 
         void createBrick(const SDL_FPoint &pos, int row, bool isRight) const;
-        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&, PaddleSide side, bool isRight) const;
+        void createPad(const SDL_FRect&, const SDL_FPoint&, const Keys&, bool isRight) const;
         void pace_frame() const;
 
         /// init game
