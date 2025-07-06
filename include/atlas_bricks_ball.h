@@ -30,11 +30,9 @@ static inline constexpr SDL_FRect YELLOW_BRICK_COORDS[NUM_BRICK_STATE] = {
 static inline constexpr SDL_FRect PROTECT_ACTIVE{255, 70, 135, 80};
 static inline constexpr SDL_FRect PROTECT_PASSIVE{255, 170, 135, 80};
 
-/* ---------- NEW PADDLES ---------- */
 static inline constexpr SDL_FRect PAD_SHORT_COORDS{570, 1220, 192, 77};  // short paddle (right of ball)
 static inline constexpr SDL_FRect PAD_LONG_COORDS { 48, 1410, 720, 77};  // very long paddle (bottom)
 
-/* ---------- NEW POWER-UPS ---------- */
 static inline constexpr SDL_FRect POWERUP_SHRINK{797, 1210, 74, 74};  // "> <" symbol, slot 1
 static inline constexpr SDL_FRect POWERUP_ENLARGE{877, 1210, 74, 74};  // "< >" symbol, slot 2
 static inline constexpr SDL_FRect POWERUP_COIN{797, 1290, 74, 74};  // coin/dollar symbol, slot 3

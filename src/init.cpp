@@ -12,8 +12,6 @@ namespace game {
         return tex != nullptr && bgTex != nullptr && pauseTex != nullptr &&
                leftWinTex != nullptr && rightWinTex != nullptr;
     }
-
-    // todo: clean this funcion too many repeating steps in checks
     bool Game::prepareWindowAndTexture() {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
             std::cout << SDL_GetError() << std::endl;
@@ -64,7 +62,6 @@ namespace game {
             return false;
         }
 
-        // Load pause texture
         pauseTex = IMG_LoadTexture(ren, "res/pause.png");
         if (!pauseTex) {
             std::cerr << "Failed to load pause.png: " << SDL_GetError() << "\n";
@@ -76,7 +73,6 @@ namespace game {
             return false;
         }
 
-        // Load left win texture
         leftWinTex = IMG_LoadTexture(ren, "res/left_win.png");
         if (!leftWinTex) {
             std::cerr << "Failed to load left_win.png: " << SDL_GetError() << "\n";
@@ -89,7 +85,6 @@ namespace game {
             return false;
         }
 
-        // Load right win texture
         rightWinTex = IMG_LoadTexture(ren, "res/right_win.png");
         if (!rightWinTex) {
             std::cerr << "Failed to load right_win.png: " << SDL_GetError() << "\n";
@@ -125,7 +120,6 @@ namespace game {
         for (const auto &i: uiTex)
             if (i)
                 SDL_DestroyTexture(i);
-
         if (b2World_IsValid(boxWorld))
             b2DestroyWorld(boxWorld);
         if (tex != nullptr)
@@ -142,7 +136,6 @@ namespace game {
             SDL_DestroyRenderer(ren);
         if (win != nullptr)
             SDL_DestroyWindow(win);
-
         SDL_Quit();
     }
 }
