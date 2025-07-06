@@ -55,7 +55,6 @@ namespace game {
     }
 
     void Game::showScreen(UIScreen s) const {
-        // 1. Fetch texture size
         float imgW{}, imgH{};
         if (!uiTex[static_cast<int>(s)] ||
             !SDL_GetTextureSize(uiTex[static_cast<int>(s)], &imgW, &imgH)) {
@@ -64,7 +63,6 @@ namespace game {
             return;
         }
 
-        // 2. “Cover” scale so the window fills without distortion
         const float scale = std::max(WIN_WIDTH / imgW,
                                      WIN_HEIGHT / imgH);
 
@@ -75,7 +73,6 @@ namespace game {
             imgH * scale
         };
 
-        // 3. Render
         SDL_RenderClear(ren);
         SDL_RenderTexture(ren, uiTex[static_cast<int>(s)], nullptr, &dst);
         SDL_RenderPresent(ren);
@@ -99,7 +96,7 @@ namespace game {
             }
 
             const UIScreen prev = ui;
-            bool startGame = false; // s
+            bool startGame = false;
 
             switch (ui) {
                 case UIScreen::Main: handleMainKeys(keys);
@@ -113,16 +110,12 @@ namespace game {
                 default:
                     break;
             }
-
             if (ui != prev)
                 waitKeyRelease = true;
-
             showScreen(ui);
             pace_frame();
-
             if (startGame)
                 return;
-
             if (keys[SDL_SCANCODE_ESCAPE])
                 appQuit = true;
             windowClosedClicked();
