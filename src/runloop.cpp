@@ -57,7 +57,7 @@ namespace game {
         }
     }
 
-    void Game::pace_frame() const {
+    void Game::pace_frame() {
         static Uint32 frameStart = SDL_GetTicks();
         const Uint64 frameEnd = SDL_GetTicks();
         const Uint64 elapsed = frameEnd - frameStart;
@@ -81,7 +81,7 @@ namespace game {
                 move_system();
                 box_system();
                 constraints_system();
-                protectbrick_damp_system();
+                protect_brick_damp_system();
                 collision_detector_system();
                 brick_system();
                 ttl_system();

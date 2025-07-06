@@ -13,6 +13,7 @@ add_executable(
         src/menu.cpp
         src/runloop.cpp
         src/init.cpp
+        include/components.h
 )
 
 set(SDL_STATIC  ON)

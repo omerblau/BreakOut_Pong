@@ -6,7 +6,7 @@
 #include <algorithm>
 
 namespace game {
-    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) const {
+    bool Game::anyKeyStillDown(const bool *keys, const int keyCount) {
         for (int i = 0; i < keyCount; ++i)
             if (keys[i]) return true;
         return false;
